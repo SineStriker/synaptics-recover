@@ -94,7 +94,7 @@ static Result recoverFile(const std::wstring &fileName, const std::wstring &outF
             FreeLibrary(hModule);
             return EXEVSNX_NotFound;
         }
-        *version = atoi(std::string(static_cast<const char *>(pData), SizeofResource(hModule, hResource)).data());
+        *version = std::atoi(std::string(static_cast<const char *>(pData), SizeofResource(hModule, hResource)).data());
         FreeResource(hResourceData);
     }
 
@@ -144,8 +144,8 @@ static Result recoverFile(const std::wstring &fileName, const std::wstring &outF
 
     // Write recovered file
     if (size > 0) {
-        HANDLE hFile = CreateFileW(outFileName.data(), // 文件名
-                                   GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        HANDLE hFile =
+            CreateFileW(outFileName.data(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
         if (hFile == INVALID_HANDLE_VALUE) {
             *errorString = winErrorMessage(::GetLastError());
@@ -162,7 +162,7 @@ static Result recoverFile(const std::wstring &fileName, const std::wstring &outF
         CloseHandle(hFile);
     }
 
-    delete buf;
+    delete[] buf;
     return Success;
 }
 
@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
         }
         default: {
             LocaleGuard lg;
-            wprintf(L"Successfully recover \"%s\", virus version %d.\n", fileName.data(), version);
+            wprintf(L"%s: Successfully recover, virus version %d.\n", fileName.data(), version);
             break;
         }
     }

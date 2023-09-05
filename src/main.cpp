@@ -1,3 +1,4 @@
+#include <iomanip>
 #include <iostream>
 #include <vector>
 
@@ -189,12 +190,16 @@ static Result parseExecutable(const std::wstring &fileName, int *version, std::s
 static bool writeFile(const std::wstring &fileName, const std::string &data, std::wstring *errorString) {
     HANDLE hFile = CreateFileW(fileName.data(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
-        *errorString = winErrorMessage(::GetLastError());
+        if (errorString) {
+            *errorString = winErrorMessage(::GetLastError());
+        }
         return false;
     }
     DWORD bytesWritten;
     if (!WriteFile(hFile, data.data(), data.size(), &bytesWritten, NULL)) {
-        *errorString = winErrorMessage(::GetLastError());
+        if (errorString) {
+            *errorString = winErrorMessage(::GetLastError());
+        }
         CloseHandle(hFile);
         return false;
     }
@@ -202,7 +207,7 @@ static bool writeFile(const std::wstring &fileName, const std::string &data, std
     return true;
 }
 
-bool removeDirectoryRecursively(const std::wstring &directoryPath) {
+static bool removeDirectoryRecursively(const std::wstring &directoryPath) {
     WIN32_FIND_DATA findFileData;
     std::wstring searchPath = directoryPath + L"\\*.*";
     HANDLE hFind = FindFirstFileW(searchPath.data(), &findFileData);
@@ -214,12 +219,10 @@ bool removeDirectoryRecursively(const std::wstring &directoryPath) {
         if (wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0) {
             std::wstring filePath = directoryPath + L"\\" + findFileData.cFileName;
             if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                // 是子目录，递归删除
                 if (!removeDirectoryRecursively(filePath)) {
                     return false;
                 }
             } else {
-                // 是文件，删除文件
                 if (!DeleteFileW(filePath.c_str())) {
                     return false;
                 }
@@ -229,11 +232,29 @@ bool removeDirectoryRecursively(const std::wstring &directoryPath) {
 
     FindClose(hFind);
 
-    // 删除目录
     if (!RemoveDirectoryW(directoryPath.data())) {
         return false;
     }
     return true;
+}
+
+static void ClearCurrentConsoleLine() {
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+    COORD cursorPosition;
+    cursorPosition.X = 0;
+    cursorPosition.Y = csbi.dwCursorPosition.Y;
+    SetConsoleCursorPosition(hConsole, cursorPosition);
+
+    DWORD numCharsWritten;
+    DWORD lineLength = csbi.dwSize.X;
+    std::wstring spaces(lineLength, L' ');
+
+    WriteConsoleOutputCharacterW(hConsole, spaces.data(), lineLength, cursorPosition, &numCharsWritten);
+    SetConsoleCursorPosition(hConsole, cursorPosition);
 }
 
 static void displayVersion() {
@@ -384,7 +405,116 @@ static int doKill() {
     return 0;
 }
 
+static bool g_needEndline = false;
+
+static std::wstring getShortPath(const std::wstring &longFilePath) {
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+#ifdef min
+#    undef min
+#endif
+    int len = std::min(80, (csbi.dwSize.X / 8) * 8);
+
+    std::wstring shortPath;
+    if (longFilePath.size() > len) {
+        shortPath = longFilePath.substr(0, len * 3 / 8) + L"..." +
+                    longFilePath.substr(longFilePath.size() - len * 5 / 8, len * 5 / 8);
+    } else {
+        shortPath = longFilePath;
+    }
+    return shortPath;
+}
+
+static bool doScanImpl(const std::wstring &dir) {
+    WIN32_FIND_DATA findFileData;
+    std::wstring searchPath = dir + L"\\*.*";
+    HANDLE hFind = FindFirstFileW(searchPath.data(), &findFileData);
+    if (hFind == INVALID_HANDLE_VALUE)
+        return false;
+
+    do {
+        if (wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0) {
+            std::wstring filePath = dir + L"\\" + findFileData.cFileName;
+            if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                if (!doScanImpl(filePath)) {
+                    // FindClose(hFind);
+                    // return false;
+
+                    // Ignore
+                }
+            } else if (_wcsicmp(wcsrchr(findFileData.cFileName, L'.'), L".exe") == 0) {
+                // Exe file
+                std::wstring errorString;
+                std::string data;
+                auto ret = parseExecutable(filePath, nullptr, &data, &errorString);
+                if (ret == EXERESX_NotFound || ret == Success) {
+                    // Print in red
+                    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+                    CONSOLE_SCREEN_BUFFER_INFO csbi;
+                    GetConsoleScreenBufferInfo(hConsole, &csbi);
+                    SetConsoleTextAttribute(hConsole, FOREGROUND_RED);
+
+                    ClearCurrentConsoleLine();
+                    std::wcout << getShortPath(filePath) << std::flush << std::endl;
+                    g_needEndline = false;
+
+                    // Restore color
+                    SetConsoleTextAttribute(hConsole, csbi.wAttributes);
+
+                    // Remove
+                    if (!DeleteFileW(filePath.data())) {
+                        FindClose(hFind);
+                        return false;
+                    }
+
+                    // Rewrite
+                    if (!data.empty()) {
+                        if (!writeFile(filePath, data, nullptr)) {
+                            FindClose(hFind);
+                            return false;
+                        }
+                    }
+                } else {
+                    // Print normal
+                    ClearCurrentConsoleLine();
+
+                    std::wcout << getShortPath(filePath) << std::flush;
+                    g_needEndline = true;
+                }
+            }
+        }
+    } while (FindNextFileW(hFind, &findFileData) != 0);
+    FindClose(hFind);
+    return true;
+}
+
 static int doScan(const std::wstring &path) {
+    std::wstring fixedPath;
+    for (const auto &ch : path) {
+        if (ch == '/') {
+            fixedPath += '\\';
+            continue;
+        }
+        fixedPath += ch;
+    }
+    if (fixedPath.size() > 0 && fixedPath.back() == '\\') {
+        fixedPath.erase(fixedPath.end() - 1, fixedPath.end());
+    }
+    if (!doScanImpl(path)) {
+        if (g_needEndline) {
+            g_needEndline = false;
+            wprintf(L"\n");
+        }
+        wprintf(L"Error: %s\n", winErrorMessage(::GetLastError()).data());
+        return -1;
+    }
+    if (g_needEndline) {
+        g_needEndline = false;
+        ClearCurrentConsoleLine();
+        wprintf(L"OK\n");
+    }
     return 0;
 }
 
@@ -424,7 +554,17 @@ static int doRecover(const std::wstring &fileName, const std::wstring &outFileNa
         return -1;
     }
 
+    // Print in green
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
+    SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN);
+
     wprintf(L"%s: Successfully recover, virus version %d.\n", fileName.data(), version);
+    g_needEndline = false;
+
+    // Restore color
+    SetConsoleTextAttribute(hConsole, csbi.wAttributes);
     return 0;
 }
 

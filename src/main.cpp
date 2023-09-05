@@ -129,7 +129,7 @@ static Result parseExecutable(const std::wstring &fileName, int *version, std::s
     // 114514 (It's me)
     {
         HRSRC hResource = FindResourceW(hModule, L"_114514", RT_RCDATA);
-        if (hResource != NULL && version1 == 0) {
+        if (hResource != NULL && (version1 == 0 || version1 == 6666)) {
             FreeLibrary(hModule);
             return MySelf;
         }

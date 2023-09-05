@@ -1,13 +1,36 @@
 # Synaptics Recover
 
-Recover a Windows Executable infected by Synaptics Pointing Device Driver virus.
+Recover Windows Executable files infected by Synaptics Pointing Device Driver virus.
 
 ## Usage
 
-Make a directory, place `recover.py` and `synaptics-recover.exe` into the directory.
-
 ```sh
-python recover.py <dir>
+Command line tool to kill Synaptics Virus.
+Usage: synaptics-recover [options] [<input> [output]]
+
+Options:
+    -k                  Scan processes, program data and registry to kill the virus
+    -s <dir>            Scan a directory recursively, recover infected executables
+    -h/--help           Show this message
+    -v/--version        Show version
+
+If no option is specified, this program will try to recover the input executable file.
 ```
 
-The script will search the directory recursively for `.exe` files and call `synaptics-recover` for each, and generate a log file listing all infected ones.
+## Examples
+
+```sh
+# Recover a file
+synaptics-recover infected.exe infected.exe
+
+# Recover a file but reserve the infected one
+synaptics-recover infected.exe recovered.exe
+
+# Kill virus from memory, filesystem and registry
+# Administrator privilege is required
+synaptics-recover -k
+
+# Scan a directory recurively, recover infected executables
+# Administrator privilege may be required
+synaptics-recover -s C:
+```

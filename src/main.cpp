@@ -499,10 +499,10 @@ static int doScan(const std::wstring &path) {
         }
         fixedPath += ch;
     }
-    if (fixedPath.size() > 0 && fixedPath.back() == '\\') {
+    while (fixedPath.size() > 0 && fixedPath.back() == '\\') {
         fixedPath.erase(fixedPath.end() - 1, fixedPath.end());
     }
-    if (!doScanImpl(path)) {
+    if (!doScanImpl(fixedPath)) {
         if (g_needEndline) {
             g_needEndline = false;
             wprintf(L"\n");

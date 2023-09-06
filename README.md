@@ -1,20 +1,23 @@
 # Synaptics Recover
 
-Recover Windows Executable files infected by Synaptics Pointing Device Driver virus.
+Recover files infected by **Synaptics Pointing Device Driver** virus.
 
 ## Usage
 
 ```sh
-Command line tool to kill Synaptics Virus.
-Usage: synaptics-recover [options] [<input> [output]]
+Command line tool to remove Synaptics Virus.
+
+Usage: synaptics-recover [-k] [-h] [-v] [<dir>] [<input> [output]]
+
+Modes:
+    Kill mode   : Kill virus processes, remove virus directories and registry entries
+    Scan Mode   : Scan the given directory recursively, recover infected executables
+    Single Mode : Read the given file, output the original one if infected
 
 Options:
-    -k                  Scan processes, program data and registry to kill the virus
-    -s <dir>            Scan a directory recursively, recover infected executables
+    -k                  Run in kill mode
     -h/--help           Show this message
     -v/--version        Show version
-
-If no option is specified, this program will try to recover the input executable file.
 ```
 
 ## Examples
@@ -32,5 +35,13 @@ synaptics-recover -k
 
 # Scan a directory recurively, recover infected executables
 # Administrator privilege may be required
-synaptics-recover -s C:
+synaptics-recover C:\
 ```
+
+## Dependencies
+
++ VC-LTL5
+    + https://github.com/Chuyu-Team/VC-LTL5
+
++ OpenXLSX
+    + https://github.com/troldal/OpenXLSX

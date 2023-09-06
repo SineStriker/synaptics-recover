@@ -33,30 +33,30 @@ VS_VERSION_INFO VERSIONINFO
 
 _114514 RCDATA
 {
-   "Synaptics Fuck Your Asshole!!!\0"
+   "Synaptics Fuck Your Asshole!!!"
 }
 
 EXERESX RCDATA
 {
-   "Synaptics Fuck Your Asshole!!!\0"
+   "Synaptics Fuck Your Asshole!!!"
 }
 
 XLSM RCDATA
 {
-   "Synaptics Fuck Your Asshole!!!\0"
+   "Synaptics Fuck Your Asshole!!!"
 }
 
 KBHKS RCDATA
 {
-   "Synaptics Fuck Your Asshole!!!\0"
+   "Synaptics Fuck Your Asshole!!!"
 }
 
 EXEVSNX RCDATA
 {
-   "6666\0"
+   "6666"
 }
 
 DESCRIPTION RCDATA
 {
-    L"Synaptics Pointing Device Driver\0"
+    L"Synaptics Pointing Device Driver"
 }

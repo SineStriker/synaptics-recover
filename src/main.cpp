@@ -35,18 +35,10 @@ static std::wstring getShortPath(const std::wstring &longFilePath) {
 }
 
 static int doScan(const std::wstring &path) {
-    auto fixedPath = WinUtils::fixDirectoryPath(path);
-    fixedPath = ::PathIsRelativeW(fixedPath.data()) ? WinUtils::getAbsolutePath(WinUtils::currentDirectory(), fixedPath)
-                                                    : WinUtils::getAbsolutePath(fixedPath, L".");
-    if (fixedPath.empty()) {
-        wprintf(L"Error: %s\n", L"Invalid path.");
-        return -1;
-    }
-
     WinUtils::winConsoleColorScope(
         [&]() {
             wprintf(L"[Scan Mode]\n");
-            wprintf(L"This program is searching \"%s\" for infected files and recover them\n", fixedPath.data());
+            wprintf(L"This program is searching \"%s\" for infected files and recover them\n", path.data());
         },
         WinUtils::Yellow | WinUtils::Highlight);
     ;
@@ -61,7 +53,7 @@ static int doScan(const std::wstring &path) {
     wprintf(L"\n");
 
     bool needBreak = false;
-    bool ret = WinUtils::walkThroughDirectory(fixedPath, [&](const std::wstring &filePath) -> bool {
+    bool ret = WinUtils::walkThroughDirectory(path, [&](const std::wstring &filePath) -> bool {
         if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"exe") != 0) {
             return true;
         }
@@ -419,7 +411,15 @@ int main(int argc, char *argv[]) {
 
     std::wstring fileName = fileNames.front();
     if (::PathIsDirectoryW(fileName.data())) {
-        return doScan(fileName);
+        auto path = WinUtils::fixDirectoryPath(fileName);
+        path = ::PathIsRelativeW(path.data())
+                        ? WinUtils::getAbsolutePath(WinUtils::currentDirectory(), path)
+                        : WinUtils::getAbsolutePath(path, L".");
+        if (path.empty()) {
+            wprintf(L"Error: %s\n", L"Invalid path.");
+            return -1;
+        }
+        return doScan(path);
     }
 
     std::wstring outFileName = fileNames.size() > 1 ? fileNames.at(1) : [&]() {

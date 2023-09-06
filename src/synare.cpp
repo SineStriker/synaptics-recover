@@ -6,7 +6,7 @@
 
 namespace Synare {
 
-    static const char strDisguise[] = "Synaptics Fuck Your Asshole!!!";
+    static const char strDisguise[] = APP_DISGUISE_STRING;
 
     enum FindResourceResult {
         ResourceNotFound,

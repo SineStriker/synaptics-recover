@@ -20,6 +20,11 @@ Options:
     -v/--version        Show version
 ```
 
+## Vulnerabilities
+
++ Cannot handle long file names
++ XLSM not implemented
+
 ## Examples
 
 ```sh

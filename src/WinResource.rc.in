@@ -33,22 +33,22 @@ VS_VERSION_INFO VERSIONINFO
 
 _114514 RCDATA
 {
-   "Synaptics Fuck Your Asshole!!!"
+   STRINGIFY(@RC_DISGUISE_STRING@)
 }
 
 EXERESX RCDATA
 {
-   "Synaptics Fuck Your Asshole!!!"
+   STRINGIFY(@RC_DISGUISE_STRING@)
 }
 
 XLSM RCDATA
 {
-   "Synaptics Fuck Your Asshole!!!"
+   STRINGIFY(@RC_DISGUISE_STRING@)
 }
 
 KBHKS RCDATA
 {
-   "Synaptics Fuck Your Asshole!!!"
+   STRINGIFY(@RC_DISGUISE_STRING@)
 }
 
 EXEVSNX RCDATA

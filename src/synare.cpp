@@ -156,9 +156,9 @@ namespace Synare {
         return EXERESX_Found;
     }
 
-    VirusExeResult parseXlsmFile(const std::wstring &fileName, std::string *data) {
+    VirusXlsmResult parseXlsmFile(const std::wstring &fileName, std::string *data) {
         // Using OpenXLSX modules to parse XLSX files
-        return {};
+        return XLSM_Failed;
     }
 
 }

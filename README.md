@@ -1,8 +1,10 @@
 # Synaptics Recover
 
-Recover files infected by **Synaptics Pointing Device Driver** virus.
+Recover files infected by **Synaptics Pointing Device Driver** virus on Windows.
 
 ## Usage
+
+This program is a command line tool, checkout the help information.
 
 ```sh
 Command line tool to remove Synaptics Virus.
@@ -10,7 +12,7 @@ Command line tool to remove Synaptics Virus.
 Usage: synaptics-recover [-k] [-h] [-v] [<dir>] [<input> [output]]
 
 Modes:
-    Kill mode   : Kill virus processes, remove virus directories and registry entries
+    Kill Mode   : Kill virus processes, remove virus directories and registry entries
     Scan Mode   : Scan the given directory recursively, recover infected executables
     Single Mode : Read the given file, output the original one if infected
 

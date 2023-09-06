@@ -24,7 +24,7 @@ namespace Synare {
         XLSM_Failed = 0,
     };
 
-    VirusExeResult parseXlsmFile(const std::wstring &fileName, std::string *data);
+    VirusXlsmResult parseXlsmFile(const std::wstring &fileName, std::string *data);
 
 }
 

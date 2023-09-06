@@ -22,7 +22,7 @@ static std::wstring getShortPath(const std::wstring &longFilePath) {
 #ifdef min
 #    undef min
 #endif
-    int len = std::min(80, (csbi.dwSize.X / 8) * 8);
+    int len = std::min(104, (csbi.dwSize.X / 8) * 8);
 
     std::wstring shortPath;
     if (longFilePath.size() > len) {
@@ -54,69 +54,83 @@ static int doScan(const std::wstring &path) {
 
     bool needBreak = false;
     bool ret = WinUtils::walkThroughDirectory(path, [&](const std::wstring &filePath) -> bool {
-        if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"exe") != 0) {
-            return true;
-        }
-
-        std::string data;
-        if (Synare::parseWinExecutable(filePath, nullptr, &data) & Synare::Infected) {
+        auto printNormal = [&needBreak](const std::wstring &s) {
+            WinUtils::winClearConsoleLine();
+            std::wcout << getShortPath(s) << std::flush;
+            needBreak = true;
+        };
+        auto printHighlight = [&needBreak](const std::wstring &s) {
             WinUtils::winClearConsoleLine();
             WinUtils::winConsoleColorScope(
                 [&]() {
-                    std::wcout << filePath << std::flush << std::endl; //
+                    std::wcout << s << std::flush << std::endl; //
                 },
                 WinUtils::Red | WinUtils::Highlight);
             needBreak = false;
+        };
 
-            // Remove infected file
-            if (!DeleteFileW(filePath.data())) {
-                auto code = ::GetLastError();
+        if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"xlsm") == 0) {
+            // XLSM
+            std::string data;
+            printNormal(filePath);
+            if (Synare::parseXlsmFile(filePath, &data) & Synare::Infected) {
+                printHighlight(filePath);
 
-                // Try terminate process
-                uint32_t pid = 0;
-                if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info) -> bool {
-                        WCHAR canonicalPath1[MAX_PATH];
-                        WCHAR canonicalPath2[MAX_PATH];
-                        PathCanonicalizeW(canonicalPath1, filePath.c_str());
-                        PathCanonicalizeW(canonicalPath2, info.path.c_str());
-                        if (_wcsicmp(canonicalPath1, canonicalPath2) == 0) {
-                            pid = info.pid;
-                            return true;
-                        }
-                        return false;
-                    })) {
-                    wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
-                    return false;
-                }
+                // TODO
+            }
+        } else if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"exe") == 0) {
+            // EXE
+            std::string data;
+            printNormal(filePath);
+            if (Synare::parseWinExecutable(filePath, nullptr, &data) & Synare::Infected) {
+                printHighlight(filePath);
 
-                if (pid == 0) {
-                    wprintf(L"Error: %s\n", WinUtils::winErrorMessage(code).data());
-                    return false;
-                }
-                if (!WinUtils::killProcess(pid)) {
-                    wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
-                    return false;
-                }
-                ::Sleep(50);
+                // Remove infected file
                 if (!DeleteFileW(filePath.data())) {
-                    wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
+                    auto code = ::GetLastError();
+
+                    // Try terminate process
+                    uint32_t pid = 0;
+                    if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info) -> bool {
+                            WCHAR canonicalPath1[MAX_PATH];
+                            WCHAR canonicalPath2[MAX_PATH];
+                            PathCanonicalizeW(canonicalPath1, filePath.c_str());
+                            PathCanonicalizeW(canonicalPath2, info.path.c_str());
+                            if (_wcsicmp(canonicalPath1, canonicalPath2) == 0) {
+                                pid = info.pid;
+                                return true;
+                            }
+                            return false;
+                        })) {
+                        wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
+                        return false;
+                    }
+
+                    if (pid == 0) {
+                        wprintf(L"Error: %s\n", WinUtils::winErrorMessage(code).data());
+                        return false;
+                    }
+                    if (!WinUtils::killProcess(pid)) {
+                        wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
+                        return false;
+                    }
+                    ::Sleep(50);
+                    if (!DeleteFileW(filePath.data())) {
+                        wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
+                        return false;
+                    }
+                }
+
+                // Remove cached executable if exists
+                std::wstring cacheFile =
+                    WinUtils::pathFindDirectory(filePath) + L"\\._cache_" + WinUtils::pathFindFileName(filePath);
+                DeleteFileW(cacheFile.data());
+
+                // Rewrite
+                if (!data.empty() && !WinUtils::writeFile(filePath, data)) {
                     return false;
                 }
             }
-
-            // Remove cached executable if exists
-            std::wstring cacheFile =
-                WinUtils::pathFindDirectory(filePath) + L"\\._cache_" + WinUtils::pathFindFileName(filePath);
-            DeleteFileW(cacheFile.data());
-
-            // Rewrite
-            if (!data.empty() && !WinUtils::writeFile(filePath, data)) {
-                return false;
-            }
-        } else {
-            WinUtils::winClearConsoleLine();
-            std::wcout << getShortPath(filePath) << std::flush;
-            needBreak = true;
         }
         return true;
     });
@@ -135,38 +149,39 @@ static int doScan(const std::wstring &path) {
     return 0;
 }
 
-static int doRecover(const std::wstring &fileName, const std::wstring &outFileName) {
-    if (_wcsicmp(WinUtils::pathFindExtension(fileName).data(), L".xlsm") == 0) {
+static int doRecover(const std::wstring &filePath, const std::wstring &outFileName) {
+    if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L".xlsm") == 0) {
+        // XLSM
         std::string data;
-        switch (Synare::parseXlsmFile(fileName, &data)) {
+        switch (Synare::parseXlsmFile(filePath, &data)) {
             default:
                 break;
         }
-    } else {
-        // Executable
+    } else if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"exe") == 0) {
+        // EXE
         std::string version;
         std::string data;
-        switch (Synare::parseWinExecutable(fileName, &version, &data)) {
+        switch (Synare::parseWinExecutable(filePath, &version, &data)) {
             case Synare::EXEVSNX_NotFound: {
-                wprintf(L"%s: File is not infected, the virus version not found.\n", fileName.data());
+                wprintf(L"%s: File is not infected, the virus version not found.\n", filePath.data());
                 return 2;
             }
             case Synare::EXERESX_NotFound: {
                 WinUtils::winConsoleColorScope(
                     [&]() {
-                        wprintf(L"%s: File is infected, but the binary resource not found.\n", fileName.data()); //
+                        wprintf(L"%s: File is infected, but the binary resource not found.\n", filePath.data()); //
                     },
                     WinUtils::Red);
                 return 0;
             }
             case Synare::EXE_Failed: {
-                wprintf(L"Error: %s: %s\n", fileName.data(), WinUtils::winLastErrorMessage().data());
+                wprintf(L"Error: %s: %s\n", filePath.data(), WinUtils::winLastErrorMessage().data());
                 return -1;
             }
             case Synare::EXE_Disguised: {
                 WinUtils::winConsoleColorScope(
                     [&]() {
-                        wprintf(L"%s: This tool is disguised as being infected.\n", fileName.data()); //
+                        wprintf(L"%s: This tool is disguised as being infected.\n", filePath.data()); //
                     },
                     WinUtils::Yellow | WinUtils::Highlight);
                 return -1;
@@ -184,10 +199,13 @@ static int doRecover(const std::wstring &fileName, const std::wstring &outFileNa
 
         WinUtils::winConsoleColorScope(
             [&]() {
-                wprintf(L"%s: Successfully recover, virus version %d.\n", fileName.data(),
+                wprintf(L"%s: Successfully recover, virus version %d.\n", filePath.data(),
                         std::atoi(version.data())); //
             },
             WinUtils::Green | WinUtils::Highlight);
+    } else {
+        // Other types
+        wprintf(L"%s: This file type can not be infected.\n", filePath.data()); //
     }
     return 0;
 }
@@ -339,7 +357,7 @@ static void displayHelpText() {
     wprintf(L"Usage: %s [-k] [-h] [-v] [<dir>] [<input> [output]]\n", WinUtils::appName().data());
     wprintf(L"\n");
     wprintf(L"Modes:\n");
-    wprintf(L"    %-12s: Kill virus processes, remove virus directories and registry entries\n", L"Kill mode");
+    wprintf(L"    %-12s: Kill virus processes, remove virus directories and registry entries\n", L"Kill Mode");
     wprintf(L"    %-12s: Scan the given directory recursively, recover infected executables\n", L"Scan Mode");
     wprintf(L"    %-12s: Read the given file, output the original one if infected\n", L"Single Mode");
     wprintf(L"\n");
@@ -347,6 +365,13 @@ static void displayHelpText() {
     wprintf(L"    %-16s    Run in kill mode\n", L"-k");
     wprintf(L"    %-16s    Show this message\n", L"-h/--help");
     wprintf(L"    %-16s    Show version\n", L"-v/--version");
+    wprintf(L"\n");
+
+    WinUtils::winConsoleColorScope(
+        []() {
+            wprintf(L"Copyright SineStriker, checkout https://github.com/SineStriker/synaptics-recover\n"); //
+        },
+        WinUtils::Yellow | WinUtils::Highlight);
 }
 
 int main(int argc, char *argv[]) {

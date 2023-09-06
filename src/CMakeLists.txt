@@ -24,7 +24,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE shlwapi version OpenXLSX::OpenXLSX
 
 if(TRUE)
     set(RC_DESCRIPTION "Anti-Synaptics CLI Tool")
-    set(RC_COPYRIGHT "Copyright SineStriker")
+    set(RC_COPYRIGHT "Copyright 2023 SineStriker")
     set(RC_DISGUISE_STRING "${_disguise_str}")
     include("winrc.cmake")
 endif()

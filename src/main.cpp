@@ -38,7 +38,7 @@ static int doScan(const std::wstring &path) {
     WinUtils::winConsoleColorScope(
         [&]() {
             wprintf(L"[Scan Mode]\n");
-            wprintf(L"This program is searching \"%s\" for infected files and recover them.\n", path.data());
+            wprintf(L"Searching \"%s\" for infected files and recover them.\n", path.data());
         },
         WinUtils::Yellow | WinUtils::Highlight);
     ;
@@ -77,6 +77,8 @@ static int doScan(const std::wstring &path) {
                 printHighlight(filePath);
 
                 // TODO
+                if (!DeleteFileW(filePath.data())) {
+                }
             }
         } else if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"exe") == 0) {
             // EXE
@@ -91,7 +93,7 @@ static int doScan(const std::wstring &path) {
 
                     // Try terminate process
                     uint32_t pid = 0;
-                    if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info) -> bool {
+                    if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info, void *) -> bool {
                             WCHAR canonicalPath1[MAX_PATH];
                             WCHAR canonicalPath2[MAX_PATH];
                             PathCanonicalizeW(canonicalPath1, filePath.c_str());
@@ -150,13 +152,29 @@ static int doScan(const std::wstring &path) {
 }
 
 static int doRecover(const std::wstring &filePath, const std::wstring &outFileName) {
-    if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L".xlsm") == 0) {
+    if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"xlsm") == 0) {
         // XLSM
         std::string data;
         switch (Synare::parseXlsmFile(filePath, &data)) {
+            case Synare::XLSM_Failed: {
+                wprintf(L"Error: %s: %s\n", filePath.data(), WinUtils::winLastErrorMessage().data());
+                return -1;
+            }
             default:
                 break;
         }
+
+        // Write output
+        if (!WinUtils::writeFile(outFileName, data)) {
+            wprintf(L"Error: %s: %s\n", outFileName.data(), WinUtils::winLastErrorMessage().data());
+            return -1;
+        }
+
+        WinUtils::winConsoleColorScope(
+            [&]() {
+                wprintf(L"%s: Successfully recover XLSX file.\n", filePath.data()); //
+            },
+            WinUtils::Green | WinUtils::Highlight);
     } else if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"exe") == 0) {
         // EXE
         std::string version;
@@ -199,7 +217,7 @@ static int doRecover(const std::wstring &filePath, const std::wstring &outFileNa
 
         WinUtils::winConsoleColorScope(
             [&]() {
-                wprintf(L"%s: Successfully recover, virus version %d.\n", filePath.data(),
+                wprintf(L"%s: Successfully recover executable file, virus version %d.\n", filePath.data(),
                         std::atoi(version.data())); //
             },
             WinUtils::Green | WinUtils::Highlight);
@@ -248,8 +266,10 @@ static bool removeRegistryVirus() {
 
     HKEY hKey;
     for (const auto &reg : regs) {
+        // Open entry
         LSTATUS result = RegOpenKeyExW(HKEY_CURRENT_USER, reg.field, 0, KEY_WRITE, &hKey);
         if (result == ERROR_SUCCESS) {
+            // Remove key
             switch (RegDeleteValueW(hKey, reg.key)) {
                 case ERROR_SUCCESS: {
                     WinUtils::winConsoleColorScope(
@@ -281,10 +301,12 @@ static int doKill() {
     WinUtils::winConsoleColorScope(
         [&]() {
             wprintf(L"[Kill Mode]\n");
-            wprintf(L"This program will kill the virus process and clean your filesystem and registry.\n");
+            wprintf(L"Sanitizing the processes, virus directory and registry entries.\n");
         },
         WinUtils::Yellow | WinUtils::Highlight);
     ;
+
+    // Show warning if not running as Administrator
     if (!IsUserAnAdmin()) {
         WinUtils::winConsoleColorScope(
             [&]() {
@@ -297,8 +319,9 @@ static int doKill() {
 
     wprintf(L"[Step 1] Terminate virus process\n");
     {
+        // Walk through all processes, collect infected ones
         std::vector<WinUtils::ProcessInfo> processes;
-        if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info) -> bool {
+        if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info, void *) -> bool {
                 if (Synare::parseWinExecutable(info.path, nullptr, nullptr) & Synare::Infected) {
                     processes.push_back(info);
                 }
@@ -309,6 +332,7 @@ static int doKill() {
         }
 
         if (!processes.empty()) {
+            // Terminate all infected
             for (const auto &p : std::as_const(processes)) {
                 wprintf(L"Killing process %-10ld %s\n", p.pid, p.path.data());
 
@@ -316,10 +340,10 @@ static int doKill() {
                     wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
                     return -1;
                 }
-            }
 
-            // Wait process terminated
-            ::Sleep(50);
+                // Wait for process terminated
+                ::Sleep(50);
+            }
         }
         wprintf(L"OK\n");
     }
@@ -327,6 +351,7 @@ static int doKill() {
     wprintf(L"\n");
     wprintf(L"[Step 2] Remove virus directories\n");
     {
+        // Remove Synaptics directories
         if (!removeFileSystemVirus()) {
             wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
             return -1;
@@ -337,6 +362,8 @@ static int doKill() {
     wprintf(L"\n");
     wprintf(L"[Step 3] Clean Registry\n");
     {
+        // The virus will add itself to startup list in registry
+        // Remove them all
         if (!removeRegistryVirus()) {
             wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
             return -1;
@@ -435,14 +462,19 @@ int main(int argc, char *argv[]) {
     }
 
     std::wstring fileName = fileNames.front();
-    if (::PathIsDirectoryW(fileName.data())) {
+
+
+    DWORD attributes = GetFileAttributesW(fileName.data());
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+        wprintf(L"Error: %s: %s\n", fileName.data(), L"Invalid path.");
+        return -1;
+    }
+
+    if (attributes & FILE_ATTRIBUTE_DIRECTORY) {
+        // Directory
         auto path = WinUtils::fixDirectoryPath(fileName);
         path = ::PathIsRelativeW(path.data()) ? WinUtils::getAbsolutePath(WinUtils::currentDirectory(), path)
                                               : WinUtils::getAbsolutePath(path, L".");
-        if (path.empty()) {
-            wprintf(L"Error: %s\n", L"Invalid path.");
-            return -1;
-        }
         return doScan(path);
     }
 

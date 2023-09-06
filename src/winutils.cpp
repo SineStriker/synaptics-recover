@@ -55,7 +55,7 @@ namespace WinUtils {
     std::wstring winLastErrorMessage(bool nativeLanguage, uint32_t *code) {
         auto err = ::GetLastError();
         auto res = winErrorMessage(err, nativeLanguage);
-        ::SetLastErrorEx(err, nativeLanguage);
+        ::SetLastError(err);
         if (code) {
             *code = err;
         }
@@ -195,6 +195,16 @@ namespace WinUtils {
         return name;
     }
 
+    bool pathIsFile(const std::wstring &path) {
+        DWORD attributes = GetFileAttributesW(path.data());
+        if (attributes != INVALID_FILE_ATTRIBUTES) {
+            if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                return true;
+            }
+        }
+        return false; // Directory or invalid
+    }
+
     std::wstring appFilePath() {
         wchar_t buf[MAX_PATH];
         if (!::GetModuleFileNameW(nullptr, buf, MAX_PATH)) {
@@ -264,7 +274,7 @@ namespace WinUtils {
         SetConsoleCursorPosition(hConsole, cursorPosition);
     }
 
-    bool walkThroughProcesses(const std::function<bool(const ProcessInfo &)> &func) {
+    bool walkThroughProcesses(const std::function<bool(const ProcessInfo &, void *)> &func) {
         HANDLE hProcessSnap;
         hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if (hProcessSnap == INVALID_HANDLE_VALUE) {
@@ -290,7 +300,7 @@ namespace WinUtils {
             if (hProcess) {
                 wchar_t szProcessPath[MAX_PATH];
                 if (GetModuleFileNameExW(hProcess, NULL, szProcessPath, MAX_PATH)) {
-                    if (func({szProcessPath, pe32.th32ProcessID})) {
+                    if (func({szProcessPath, pe32.th32ProcessID}, hProcess)) {
                         over = true;
                     }
                 }

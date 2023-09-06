@@ -28,6 +28,8 @@ namespace WinUtils {
 
     std::wstring pathFindExtension(const std::wstring &path);
 
+    bool pathIsFile(const std::wstring &path);
+
     std::wstring appFilePath();
 
     std::wstring appDirectory();
@@ -52,7 +54,7 @@ namespace WinUtils {
         std::wstring path;
         uint32_t pid;
     };
-    bool walkThroughProcesses(const std::function<bool(const ProcessInfo &)> &func);
+    bool walkThroughProcesses(const std::function<bool(const ProcessInfo &, void *)> &func);
 
     bool killProcess(uint32_t pid);
 

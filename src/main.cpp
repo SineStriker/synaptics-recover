@@ -38,7 +38,7 @@ static int doScan(const std::wstring &path) {
     WinUtils::winConsoleColorScope(
         [&]() {
             wprintf(L"[Scan Mode]\n");
-            wprintf(L"This program is searching \"%s\" for infected files and recover them\n", path.data());
+            wprintf(L"This program is searching \"%s\" for infected files and recover them.\n", path.data());
         },
         WinUtils::Yellow | WinUtils::Highlight);
     ;
@@ -263,7 +263,7 @@ static int doKill() {
     WinUtils::winConsoleColorScope(
         [&]() {
             wprintf(L"[Kill Mode]\n");
-            wprintf(L"This program will kill the virus process and clean your filesystem and registry\n");
+            wprintf(L"This program will kill the virus process and clean your filesystem and registry.\n");
         },
         WinUtils::Yellow | WinUtils::Highlight);
     ;
@@ -412,9 +412,8 @@ int main(int argc, char *argv[]) {
     std::wstring fileName = fileNames.front();
     if (::PathIsDirectoryW(fileName.data())) {
         auto path = WinUtils::fixDirectoryPath(fileName);
-        path = ::PathIsRelativeW(path.data())
-                        ? WinUtils::getAbsolutePath(WinUtils::currentDirectory(), path)
-                        : WinUtils::getAbsolutePath(path, L".");
+        path = ::PathIsRelativeW(path.data()) ? WinUtils::getAbsolutePath(WinUtils::currentDirectory(), path)
+                                              : WinUtils::getAbsolutePath(path, L".");
         if (path.empty()) {
             wprintf(L"Error: %s\n", L"Invalid path.");
             return -1;

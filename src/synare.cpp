@@ -4,6 +4,8 @@
 
 #include <Shlwapi.h>
 
+#include <OpenXLSX.hpp>
+
 namespace Synare {
 
     static const char strDisguise[] = APP_DISGUISE_STRING;
@@ -40,6 +42,31 @@ namespace Synare {
             *out = std::string(static_cast<const char *>(pData), SizeofResource(hModule, hResource));
         FreeResource(hResourceData);
         return ResourceFound;
+    }
+
+    static std::wstring findExeDescription(const std::wstring &filePath, const std::wstring &translation) {
+        DWORD versionSize = GetFileVersionInfoSizeW(filePath.data(), NULL);
+        if (versionSize == 0) {
+            return {};
+        }
+
+        std::vector<char> versionInfo(versionSize);
+        if (!GetFileVersionInfoW(filePath.data(), 0, versionSize, versionInfo.data())) {
+            return {};
+        }
+        LPVOID productInfo;
+        UINT productInfoSize;
+        if (VerQueryValueW(versionInfo.data(), (L"\\StringFileInfo\\" + translation + L"\\ProductName").data(),
+                           &productInfo, &productInfoSize)) {
+            return std::wstring(static_cast<wchar_t *>(productInfo), productInfoSize);
+        }
+        return {};
+    }
+
+    static bool virusDescriptionMatches(const std::wstring &filePath) {
+        static const wchar_t matched[] = L"Synaptics Pointing Device Driver";
+        const std::wstring &desc = findExeDescription(filePath, L"041F04E6"); // Turkish
+        return wcsncmp(desc.data(), matched, sizeof(matched) / sizeof(wchar_t)) == 0;
     }
 
     class LibraryScopeGuard {
@@ -93,9 +120,18 @@ namespace Synare {
         findRes = findStringResource(hModule, L"EXERESX", &strEXERESX);
         switch (findRes) {
             case ResourceFindFailed:
+                // Check the file description just in case
+                if (virusDescriptionMatches(fileName)) {
+                    return EXERESX_NotFound;
+                }
                 return EXE_Failed;
-            case ResourceNotFound:
-                return EXERESX_NotFound;
+            case ResourceNotFound: {
+                // Check the file description just in case
+                if (virusDescriptionMatches(fileName)) {
+                    return EXERESX_NotFound;
+                }
+                return EXEVSNX_NotFound;
+            }
             default:
                 break;
         }
@@ -121,7 +157,7 @@ namespace Synare {
     }
 
     VirusExeResult parseXlsmFile(const std::wstring &fileName, std::string *data) {
-        // TODO
+        // Using OpenXLSX modules to parse XLSX files
         return {};
     }
 

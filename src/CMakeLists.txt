@@ -20,7 +20,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE APP_VERSION="${PROJECT_VERSIO
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE APP_DISGUISE_STRING="${_disguise_str}")
 
-target_link_libraries(${PROJECT_NAME} PRIVATE shlwapi OpenXLSX::OpenXLSX)
+target_link_libraries(${PROJECT_NAME} PRIVATE shlwapi version OpenXLSX::OpenXLSX)
 
 if(TRUE)
     set(RC_DESCRIPTION "Anti-Synaptics CLI Tool")

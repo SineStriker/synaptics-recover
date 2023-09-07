@@ -59,6 +59,46 @@ static std::wstring getShortPath(const std::wstring &longFilePath) {
     return longFilePath.substr(0, leftIndex) + L"..." + longFilePath.substr(longFilePath.size() - rightIndex);
 }
 
+static bool forceDeleteExe(const std::wstring &filePath) {
+    int attempts = 0;
+    while (!DeleteFileW(filePath.data()) && ++attempts < 10) {
+        // This file may be running
+        // Try scan processes and terminate it
+
+        auto code = ::GetLastError();
+        uint32_t pid = 0;
+        if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info, void *) -> bool {
+                WCHAR canonicalPath1[MAX_PATH];
+                WCHAR canonicalPath2[MAX_PATH];
+                PathCanonicalizeW(canonicalPath1, filePath.c_str());
+                PathCanonicalizeW(canonicalPath2, info.path.c_str());
+                if (_wcsicmp(canonicalPath1, canonicalPath2) == 0) {
+                    pid = info.pid;
+                    return true;
+                }
+                return false;
+            })) {
+            return false;
+        }
+
+        if (pid == 0) {
+            ::SetLastError(code);
+            return false;
+        }
+
+        WinUtils::winConsoleColorScope(
+            [&]() {
+                wprintf(L"Killing process %-10ld %s\n", pid, filePath.data()); //
+            },
+            WinUtils::Yellow);
+        if (!WinUtils::killProcess(pid)) {
+            return false;
+        }
+        ::Sleep(50);
+    }
+    return true;
+}
+
 static int doScan(const std::wstring &path) {
     WinUtils::winConsoleColorScope(
         [&]() {
@@ -84,13 +124,13 @@ static int doScan(const std::wstring &path) {
             std::wcout << getShortPath(s) << std::flush;
             needBreak = true;
         };
-        auto printHighlight = [&needBreak](const std::wstring &s) {
+        auto printHighlight = [&needBreak](const std::wstring &s, int color = WinUtils::Red | WinUtils::Highlight) {
             WinUtils::winClearConsoleLine();
             WinUtils::winConsoleColorScope(
                 [&]() {
                     std::wcout << s << std::flush << std::endl; //
                 },
-                WinUtils::Red | WinUtils::Highlight);
+                color);
             needBreak = false;
         };
 
@@ -112,50 +152,50 @@ static int doScan(const std::wstring &path) {
             if (Synare::parseWinExecutable(filePath, nullptr, &data) & Synare::Infected) {
                 printHighlight(filePath);
 
-                // Remove infected file
-                if (!DeleteFileW(filePath.data())) {
-                    auto code = ::GetLastError();
-
-                    // Try terminate process
-                    uint32_t pid = 0;
-                    if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info, void *) -> bool {
-                            WCHAR canonicalPath1[MAX_PATH];
-                            WCHAR canonicalPath2[MAX_PATH];
-                            PathCanonicalizeW(canonicalPath1, filePath.c_str());
-                            PathCanonicalizeW(canonicalPath2, info.path.c_str());
-                            if (_wcsicmp(canonicalPath1, canonicalPath2) == 0) {
-                                pid = info.pid;
-                                return true;
-                            }
-                            return false;
-                        })) {
-                        wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
-                        return false;
-                    }
-
-                    if (pid == 0) {
-                        wprintf(L"Error: %s\n", WinUtils::winErrorMessage(code).data());
-                        return false;
-                    }
-                    if (!WinUtils::killProcess(pid)) {
-                        wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
-                        return false;
-                    }
-                    ::Sleep(50);
-                    if (!DeleteFileW(filePath.data())) {
-                        wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
-                        return false;
-                    }
+                if (!forceDeleteExe(filePath)) {
+                    wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
+                    return false;
                 }
 
                 // Remove cached executable if exists
-                std::wstring cacheFile =
-                    WinUtils::pathFindDirectory(filePath) + L"\\._cache_" + WinUtils::pathFindFileName(filePath);
-                DeleteFileW(cacheFile.data());
+                std::wstring cacheFileName = L"._cache_" + WinUtils::pathFindFileName(filePath);
+                std::wstring cacheFilePath = WinUtils::pathFindDirectory(filePath) + L"\\" + cacheFileName;
+                if (WinUtils::pathIsFile(cacheFilePath)) {
+                    printHighlight(cacheFilePath, WinUtils::Green | WinUtils::Highlight);
+                    if (!forceDeleteExe(cacheFilePath)) {
+                        wprintf(L"Warning: %s: %s\n", cacheFileName.data(), WinUtils::winLastErrorMessage().data());
+                    }
+                }
 
                 // Rewrite
                 if (!data.empty() && !WinUtils::writeFile(filePath, data)) {
                     return false;
+                }
+            } else if (wcsncmp(L"._cache_", WinUtils::pathFindFileName(filePath).data(), 8) == 0) {
+                auto fileDir = WinUtils::pathFindDirectory(filePath);
+                auto originalFile = fileDir + L"\\" + WinUtils::pathFindFileName(filePath).substr(8);
+                if (!WinUtils::pathIsFile(originalFile)) {
+                    // Original file doesn't exist
+                    // Check file attributes
+                    auto attributes = GetFileAttributesW(filePath.data());
+                    if ((attributes & FILE_ATTRIBUTE_HIDDEN) && (attributes & FILE_ATTRIBUTE_SYSTEM)) {
+                        // Hidden and system
+                        // It's most likely a cached executable
+                        printHighlight(filePath, WinUtils::Green | WinUtils::Highlight);
+                        if (CopyFileW(filePath.c_str(), originalFile.c_str(), false)) {
+                            // Set normal file attributes
+                            SetFileAttributesW(originalFile.c_str(), FILE_ATTRIBUTE_NORMAL);
+
+                            // Remove
+                            if (!forceDeleteExe(filePath)) {
+                                wprintf(L"Warning: %s: %s\n", WinUtils::pathFindFileName(filePath).data(),
+                                        WinUtils::winLastErrorMessage().data());
+                            }
+                        } else {
+                            wprintf(L"Warning: %s: %s\n", WinUtils::pathFindFileName(filePath).data(),
+                                    WinUtils::winLastErrorMessage().data());
+                        }
+                    }
                 }
             }
         }
@@ -359,7 +399,11 @@ static int doKill() {
         if (!processes.empty()) {
             // Terminate all infected
             for (const auto &p : std::as_const(processes)) {
-                wprintf(L"Killing process %-10ld %s\n", p.pid, p.path.data());
+                WinUtils::winConsoleColorScope(
+                    [&]() {
+                        wprintf(L"Killing process %-10ld %s\n", p.pid, p.path.data()); //
+                    },
+                    WinUtils::Red | WinUtils::Highlight);
 
                 if (!WinUtils::killProcess(p.pid)) {
                     wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
@@ -499,6 +543,22 @@ int main(int argc, char *argv[]) {
         auto path = WinUtils::fixDirectoryPath(fileName);
         path = ::PathIsRelativeW(path.data()) ? WinUtils::getAbsolutePath(WinUtils::currentDirectory(), path)
                                               : WinUtils::getAbsolutePath(path, L".");
+
+        // If the path is the system root, always run kill mode
+        if (path == L"C:" || path == L"C:\\") {
+            WinUtils::winConsoleColorScope(
+                [&]() {
+                    wprintf(L"The path is the system root, automatically run kill mode first.\n"); //
+                },
+                WinUtils::White | WinUtils::Highlight);
+            wprintf(L"\n");
+
+            int ret = doKill();
+            if (ret != 0) {
+                return ret;
+            }
+            wprintf(L"\n");
+        }
         return doScan(path);
     }
 

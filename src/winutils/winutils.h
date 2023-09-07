@@ -61,6 +61,11 @@ namespace WinUtils {
     std::wstring getPathEnv(const wchar_t *key);
 
     std::wstring getAbsolutePath(const std::wstring &basePath, const std::wstring &relativePath);
+
+    std::wstring strMulti2Wide(const std::string &bytes);
+
+    std::string strWide2Multi(const std::wstring &str);
+
 }
 
 #endif // WINUTILS_H

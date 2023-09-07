@@ -1,8 +1,6 @@
 project(synare)
 
-find_package(OpenXLSX REQUIRED)
-
-file(GLOB _src *.h *.cpp)
+file(GLOB_RECURSE _src *.h *.cpp)
 
 add_library(${PROJECT_NAME} STATIC ${_src})
 
@@ -12,8 +10,15 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 
 target_link_libraries(${PROJECT_NAME} PUBLIC winutils)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE version OpenXLSX::OpenXLSX)
+target_link_libraries(${PROJECT_NAME} PRIVATE version)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    external
+    external/nowide
+    external/pugixml
+    external/zippy
 )

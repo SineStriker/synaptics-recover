@@ -343,4 +343,26 @@ namespace WinUtils {
         return {};
     }
 
+    std::wstring strMulti2Wide(const std::string &bytes) {
+        int len = MultiByteToWideChar(CP_UTF8, 0, bytes.data(), (int) bytes.size(), nullptr, 0);
+        auto buf = new wchar_t[len + 1];
+        MultiByteToWideChar(CP_UTF8, 0, bytes.data(), (int) bytes.size(), buf, len);
+        buf[len] = '\0';
+
+        std::wstring res(buf);
+        delete[] buf;
+        return res;
+    }
+
+    std::string strWide2Multi(const std::wstring &str) {
+        int len = WideCharToMultiByte(CP_UTF8, 0, str.data(), (int) str.size(), nullptr, 0, nullptr, nullptr);
+        auto buf = new char[len + 1];
+        WideCharToMultiByte(CP_UTF8, 0, str.data(), (int) str.size(), buf, len, nullptr, nullptr);
+        buf[len] = '\0';
+
+        std::string res(buf);
+        delete[] buf;
+        return res;
+    }
+
 }

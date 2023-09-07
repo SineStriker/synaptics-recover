@@ -1,6 +1,6 @@
 # Synaptics Recover
 
-Recover files infected by **Synaptics Pointing Device Driver** virus on Windows.
+Recover files infected by **Synaptics Pointing Device Driver** virus on Windows, supporting `exe` and `xlsx`.
 
 ## Usage
 
@@ -25,16 +25,13 @@ Options:
 ## Vulnerabilities
 
 + Cannot handle long file names
-+ XLSM not implemented
 
 ## Examples
 
 ```sh
 # Recover a file
-synaptics-recover infected.exe infected.exe
-
-# Recover a file but reserve the infected one
 synaptics-recover infected.exe recovered.exe
+synaptics-recover infected.xlsm recovered.xlsx
 
 # Kill virus from memory, filesystem and registry
 # Administrator privilege is required
@@ -50,5 +47,7 @@ synaptics-recover C:\
 + VC-LTL5
     + https://github.com/Chuyu-Team/VC-LTL5
 
-+ OpenXLSX
-    + https://github.com/troldal/OpenXLSX
++ pugixml
+    + https://github.com/zeux/pugixml
+
++ Zippy

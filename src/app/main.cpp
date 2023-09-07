@@ -22,16 +22,41 @@ static std::wstring getShortPath(const std::wstring &longFilePath) {
 #ifdef min
 #    undef min
 #endif
-    int len = std::min(104, (csbi.dwSize.X / 8) * 8);
+    int maxLen = std::min(104, (csbi.dwSize.X / 8) * 8);
 
-    std::wstring shortPath;
-    if (longFilePath.size() > len) {
-        shortPath = longFilePath.substr(0, len * 3 / 8) + L"..." +
-                    longFilePath.substr(longFilePath.size() - len * 5 / 8, len * 5 / 8);
-    } else {
-        shortPath = longFilePath;
+    int len = 0;
+    for (const auto &ch : longFilePath) {
+        len += (ch > 0xFF) ? 2 : 1;
     }
-    return shortPath;
+
+    if (len <= maxLen)
+        return longFilePath;
+
+    // Cut string
+    const int leftLen = maxLen * 3 / 8;
+    const int rightLen = maxLen - leftLen;
+
+    len = 0;
+    int leftIndex = 0;
+    for (auto it = longFilePath.begin(); it != longFilePath.end(); ++it) {
+        const auto &ch = *it;
+        len += (ch > 0xFF) ? 2 : 1;
+        leftIndex++;
+        if (len >= leftLen)
+            break;
+    }
+
+    len = 0;
+    int rightIndex = 0;
+    for (auto it = longFilePath.rbegin(); it != longFilePath.rend(); ++it) {
+        const auto &ch = *it;
+        len += (ch > 0xFF) ? 2 : 1;
+        rightIndex++;
+        if (len >= rightLen)
+            break;
+    }
+
+    return longFilePath.substr(0, leftIndex) + L"..." + longFilePath.substr(longFilePath.size() - rightIndex);
 }
 
 static int doScan(const std::wstring &path) {
@@ -461,8 +486,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    std::wstring fileName = fileNames.front();
-
+    const std::wstring &fileName = fileNames.front();
 
     DWORD attributes = GetFileAttributesW(fileName.data());
     if (attributes == INVALID_FILE_ATTRIBUTES) {

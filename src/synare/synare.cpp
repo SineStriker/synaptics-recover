@@ -8,7 +8,7 @@
 
 namespace Synare {
 
-    static const char strDisguise[] = APP_DISGUISE_STRING;
+    static const char SYNARE_DISGUISE_STRING[] = APP_DISGUISE_STRING;
 
     enum FindResourceResult {
         ResourceNotFound,
@@ -148,8 +148,8 @@ namespace Synare {
         // Search `_114514`
         findRes = findStringResource(hModule, L"_114514", &str114514);
         if (findRes == ResourceFound && //
-            !strcmp(strDisguise, str114514.data()) && !strcmp(strDisguise, strXLSM.data()) &&
-            !strcmp(strDisguise, strEXERESX.data())) {
+            !strcmp(SYNARE_DISGUISE_STRING, str114514.data()) && !strcmp(SYNARE_DISGUISE_STRING, strXLSM.data()) &&
+            !strcmp(SYNARE_DISGUISE_STRING, strEXERESX.data())) {
 
             // Only when all resources match, it will be recognized as disguised
             // In case this tool is infected

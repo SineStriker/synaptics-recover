@@ -14,3 +14,7 @@ if(TRUE)
     set(RC_DISGUISE_STRING "${SYNAPTICS_DISGUISE_STRING}")
     include("winrc.cmake")
 endif()
+
+if(NOT CMAKE_CL_64)
+    set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}32)
+endif()

@@ -18,6 +18,8 @@ namespace WinUtils {
 
     bool removeDirectoryRecursively(const std::wstring &dir);
 
+    bool removeFile(const std::wstring &fileName);
+
     bool walkThroughDirectory(const std::wstring &dir, const std::function<bool(const std::wstring &)> &func);
 
     std::wstring pathFindFileName(const std::wstring &path);

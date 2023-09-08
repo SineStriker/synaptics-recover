@@ -64,7 +64,7 @@ static std::wstring getShortPath(const std::wstring &longFilePath) {
 
 static bool forceDeleteExe(const std::wstring &filePath) {
     int attempts = 0;
-    while (!DeleteFileW(filePath.data()) && ++attempts < 10) {
+    while (!WinUtils::removeFile(filePath.data()) && ++attempts < 10) {
         // This file may be running
         // Try scan processes and terminate it
 
@@ -168,7 +168,7 @@ static int doScan(const std::wstring &path) {
                 printHighlight(filePath);
 
                 // TODO
-                if (!DeleteFileW(filePath.data())) {
+                if (!WinUtils::removeFile(filePath.data())) {
                     wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
                     return false;
                 }

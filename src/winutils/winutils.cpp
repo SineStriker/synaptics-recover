@@ -107,7 +107,7 @@ namespace WinUtils {
                         return false;
                     }
                 } else {
-                    if (!DeleteFileW(filePath.c_str())) {
+                    if (!WinUtils::removeFile(filePath)) {
                         return false;
                     }
                 }
@@ -116,7 +116,7 @@ namespace WinUtils {
 
         FindClose(hFind);
 
-        if (!RemoveDirectoryW(directoryPath.data())) {
+        if (!removeFile(directoryPath)) {
             return false;
         }
         return true;
@@ -124,6 +124,24 @@ namespace WinUtils {
 
     bool removeDirectoryRecursively(const std::wstring &dir) {
         return removeDirectoryImpl(fixDirectoryPath(dir));
+    }
+
+    bool removeFile(const std::wstring &fileName) {
+        auto attr = GetFileAttributesW(fileName.data());
+        if (attr == INVALID_FILE_ATTRIBUTES) {
+            return true;
+        }
+
+        // Force delete readonly files
+        if (attr & FILE_ATTRIBUTE_READONLY) {
+            if (!SetFileAttributesW(fileName.data(), attr & (~FILE_ATTRIBUTE_READONLY))) {
+                return false;
+            }
+        }
+        if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+            return RemoveDirectoryW(fileName.data());
+        }
+        return DeleteFileW(fileName.data());
     }
 
     static bool walkThroughDirectoryImpl(const std::wstring &dir,

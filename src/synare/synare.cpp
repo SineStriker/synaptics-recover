@@ -30,6 +30,7 @@ namespace Synare {
 
         HGLOBAL hResourceData = LoadResource(hModule, hResource);
         if (hResourceData == NULL) {
+            FreeResource(hResourceData);
             return ResourceFindFailed;
         }
 
@@ -82,9 +83,10 @@ namespace Synare {
             module = LoadLibraryExW(fileName.data(), NULL, LOAD_LIBRARY_AS_DATAFILE);
         }
 
-        LibraryScopeGuard() {
-            if (module)
+        ~LibraryScopeGuard() {
+            if (module) {
                 FreeLibrary(module);
+            }
         }
 
         HMODULE handle() const {

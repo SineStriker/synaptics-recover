@@ -14,6 +14,9 @@
 #include <synare.h>
 #include <winutils.h>
 
+static bool g_debug = false;
+static int g_numerator = 20;
+
 static std::wstring getShortPath(const std::wstring &longFilePath) {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -118,13 +121,20 @@ static int doScan(const std::wstring &path) {
     wprintf(L"\n");
 
     bool needBreak = false;
+
+    size_t my_cnt = 0;
+    auto lastTime = ::GetTickCount64();
     bool ret = WinUtils::walkThroughDirectory(path, [&](const std::wstring &filePath) -> bool {
-        auto printNormal = [&needBreak](const std::wstring &s) {
+        auto curTime = ::GetTickCount64();
+        auto printNormal = [&](const std::wstring &s) {
             WinUtils::winClearConsoleLine();
             std::wcout << getShortPath(s) << std::flush;
             needBreak = true;
+
+            // Update last time
+            lastTime = curTime;
         };
-        auto printHighlight = [&needBreak](const std::wstring &s, int color = WinUtils::Red | WinUtils::Highlight) {
+        auto printHighlight = [&](const std::wstring &s, int color = WinUtils::Red | WinUtils::Highlight) {
             WinUtils::winClearConsoleLine();
             WinUtils::winConsoleColorScope(
                 [&]() {
@@ -133,6 +143,20 @@ static int doScan(const std::wstring &path) {
                 color);
             needBreak = false;
         };
+
+        if (g_debug) {
+            if (my_cnt % g_numerator == 0) {
+                my_cnt = 0;
+                printNormal(filePath);
+            }
+            my_cnt++;
+        } else {
+            // If there's no responce for 500ms,
+            // simply print something
+            if (curTime - lastTime > 500) {
+                printNormal(filePath);
+            }
+        }
 
         if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"xlsm") == 0) {
             // XLSM
@@ -541,6 +565,14 @@ int main(int argc, char *argv[]) {
                 kill = true;
                 break;
             }
+            if (arg == L"-d") {
+                g_debug = true;
+                if (i + 1 < arguments.size()) {
+                    g_numerator = std::atoi(WinUtils::strWide2Multi(arguments[i + 1]).data());
+                    i++;
+                }
+                break;
+            }
             fileNames.push_back(arg);
         }
     }
@@ -579,7 +611,7 @@ int main(int argc, char *argv[]) {
                                               : WinUtils::getAbsolutePath(path, L".");
 
         // If the path is the system root, always run kill mode
-        if (path == L"C:" || path == L"C:\\") {
+        if (_wcsicmp(path.data(), L"C:") == 0 || _wcsicmp(path.data(), L"C:\\") == 0) {
             WinUtils::winConsoleColorScope(
                 [&]() {
                     wprintf(L"The path is the system root, automatically run kill mode first.\n"); //

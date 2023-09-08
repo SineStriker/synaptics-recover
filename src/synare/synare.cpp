@@ -336,6 +336,41 @@ namespace Synare {
             zip.AddEntry(workspaceRelPath, os.str());
         } while (0);
 
+        // Edit "workbook.xml"
+        do {
+            static const char workbookPath[] = "xl/workbook.xml";
+            if (!zip.HasEntry(workbookPath)) {
+                break;
+            }
+
+            pugi::xml_document workbookXml;
+            if (workbookXml
+                    .load_string(zip.GetEntry(workbookPath).GetDataAsString().data(),
+                                 pugi::parse_default | pugi::parse_ws_pcdata)
+                    .status != pugi::status_ok) {
+                break;
+            }
+
+            pugi::xml_node sheetsNode = workbookXml.document_element().child("sheets");
+            if (!sheetsNode) {
+                break;
+            }
+
+            // Set sheets visible
+            for (auto &child : sheetsNode.children()) {
+                auto attr = child.attribute("state");
+                if (strcmp(attr.value(), "hidden") == 0) {
+                    child.remove_attribute(attr);
+                }
+            }
+
+            // Save Content
+            std::ostringstream os;
+            StringXmlWrite writer(&os);
+            workbookXml.save(writer, "");
+            zip.AddEntry(workbookPath, os.str());
+        } while (0);
+
         // Save
         try {
             zip.Save(WinUtils::strWide2Multi(outFileName));

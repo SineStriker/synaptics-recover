@@ -290,7 +290,7 @@ static int doRecover(const std::wstring &fileName, std::wstring outFileName) {
                 wprintf(L"%s: Successfully recover XLSX file.\n", fileName.data()); //
             },
             WinUtils::Green | WinUtils::Highlight);
-    } else if (_wcsicmp(WinUtils::pathFindExtension(fileName).data(), L"exe") == 0) {
+    } else {
         if (outFileName.empty()) {
             auto dir = WinUtils::pathFindDirectory(fileName);
             if (!dir.empty()) {
@@ -298,6 +298,18 @@ static int doRecover(const std::wstring &fileName, std::wstring outFileName) {
             }
             outFileName = dir + L"recover_" + WinUtils::pathFindFileName(fileName);
         }
+
+        auto formatMessageWithFileName = [](const std::wstring &fileName) {
+            std::wstring errorMessage = WinUtils::winLastErrorMessage(false);
+            auto index = errorMessage.find(L"%1");
+            if (index == std::wstring::npos) {
+                wprintf(L"Error: %s: %s\n", fileName.data(), errorMessage.data());
+                return;
+            }
+
+            errorMessage = errorMessage.substr(0, index) + fileName + errorMessage.substr(index + 2);
+            wprintf(L"Error: %s\n", errorMessage.data());
+        };
 
         // EXE
         std::string version;
@@ -316,7 +328,7 @@ static int doRecover(const std::wstring &fileName, std::wstring outFileName) {
                 return 0;
             }
             case Synare::EXE_Failed: {
-                wprintf(L"Error: %s: %s\n", fileName.data(), WinUtils::winLastErrorMessage().data());
+                formatMessageWithFileName(fileName);
                 return -1;
             }
             case Synare::EXE_Disguised: {
@@ -334,7 +346,7 @@ static int doRecover(const std::wstring &fileName, std::wstring outFileName) {
 
         // Write output
         if (!WinUtils::writeFile(outFileName, data)) {
-            wprintf(L"Error: %s: %s\n", outFileName.data(), WinUtils::winLastErrorMessage().data());
+            formatMessageWithFileName(outFileName);
             return -1;
         }
 
@@ -344,9 +356,6 @@ static int doRecover(const std::wstring &fileName, std::wstring outFileName) {
                         std::atoi(version.data())); //
             },
             WinUtils::Green | WinUtils::Highlight);
-    } else {
-        // Other types
-        wprintf(L"%s: This file type shouldn't be an infected file.\n", fileName.data()); //
     }
     return 0;
 }
@@ -512,8 +521,8 @@ static void displayHelpText() {
     wprintf(L"\n");
     wprintf(L"Modes:\n");
     wprintf(L"    %-12s: Kill virus processes, remove virus directories and registry entries\n", L"Kill Mode");
-    wprintf(L"    %-12s: Scan the given directory recursively, recover infected executables\n", L"Scan Mode");
-    wprintf(L"    %-12s: Read the given file, output the original one if infected\n", L"Single Mode");
+    wprintf(L"    %-12s: Scan the given directory recursively, fix infected EXE or XLSM files\n", L"Scan Mode");
+    wprintf(L"    %-12s: Read the given input file, output the original one if infected\n", L"Single Mode");
     wprintf(L"\n");
     wprintf(L"Options:\n");
     wprintf(L"    %-16s    Run in kill mode\n", L"-k");

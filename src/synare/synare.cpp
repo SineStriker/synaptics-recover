@@ -184,6 +184,21 @@ namespace Synare {
         return false;
     }
 
+    // static bool updateFileModifyTime(const std::wstring &fileName) {
+    //     HANDLE hFile =
+    //         CreateFileW(fileName.data(), FILE_WRITE_ATTRIBUTES, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    //     if (!hFile)
+    //         return false;
+    //     FILETIME newFileTime;
+    //     GetSystemTimeAsFileTime(&newFileTime);
+    //     if (!SetFileTime(hFile, NULL, NULL, &newFileTime)) {
+    //         CloseHandle(hFile);
+    //         return false;
+    //     }
+    //     CloseHandle(hFile);
+    //     return true;
+    // }
+
     namespace {
 
         class StringXmlWrite : public pugi::xml_writer {
@@ -375,7 +390,12 @@ namespace Synare {
 
         // Save
         try {
-            zip.Save(WinUtils::strWide2Multi(outFileName));
+            std::string outFileName_utf8 = WinUtils::strWide2Multi(outFileName);
+            for (auto &ch : outFileName_utf8) {
+                if (ch == '\\')
+                    ch = '/';
+            }
+            zip.Save(outFileName_utf8);
         } catch (const std::exception &e) {
             *errorString = WinUtils::strMulti2Wide(e.what());
             zip.Close();

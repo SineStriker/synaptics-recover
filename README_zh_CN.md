@@ -11,15 +11,16 @@
 ```sh
 Command line tool to remove Synaptics Virus.
 
-Usage: synaptics-recover [-k] [-h] [-v] [<dir>] [<input> [output]]
+Usage: synaptics-recover [-k] [-h] [-v] [<dir>] [<input> [output]] [-d <N>]
 
 Modes:
     Kill Mode   : Kill virus processes, remove virus directories and registry entries
-    Scan Mode   : Scan the given directory recursively, recover infected executables
-    Single Mode : Read the given file, output the original one if infected
+    Scan Mode   : Scan the given directory recursively, fix infected EXE or XLSM files
+    Single Mode : Read the given input file, output the original one if infected
 
 Options:
     -k                  Run in kill mode
+    -d/--debug          Print after scanning every N files in scan mode
     -h/--help           Show this message
     -v/--version        Show version
 ```
@@ -71,9 +72,19 @@ synaptics-recover C:\
 
 ## 注意事项 
 
+### 本程序的伪装资源
+
 该病毒仅感染 32 位 Windows 可执行文件。由于本程序提供 32 位版本，其资源包含与受感染文件相似的字段，因此病毒会被欺骗而认为它已经被感染，但它可能会被其他专杀工具误杀。
 
 本程序不包含任何病毒代码片段，因此不会被杀毒软件检测。
+
+
+### 关于修复 XLSX
+
+根据我的实验统计，当病毒将恶意代码与XLSX文件合并时，会出现不同的奇怪错误（合并多个文件，数据丢失，甚至 Excel 内部死锁），这些错误与你安装的 Microsoft Excel 版本相关。本程序在扫描过程中可能会终止所有的 Excel 进程，请务必确保在运行本程序时没有正在编辑的 Excel 文档。
+
+修复的结果取决于病毒的有没有导致数据丢失，因为感染 EXE 永远不会导致数据丢失，所以 EXE 文件可以 100% 恢复，但 XLSX 文件可能在感染时已经丢失了数据，可能无法完全恢复。
+
 
 ## 授权
 

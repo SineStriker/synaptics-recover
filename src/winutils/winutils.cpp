@@ -144,8 +144,8 @@ namespace WinUtils {
         return DeleteFileW(fileName.data());
     }
 
-    static bool walkThroughDirectoryImpl(const std::wstring &dir,
-                                         const std::function<bool(const std::wstring &)> &func) {
+    static bool walkThroughDirectoryImpl(const std::wstring &dir, const std::function<bool(const std::wstring &)> &func,
+                                         bool strict) {
         WIN32_FIND_DATA findFileData;
         std::wstring searchPath = dir + L"\\*.*";
         HANDLE hFind = FindFirstFileW(searchPath.data(), &findFileData);
@@ -156,12 +156,15 @@ namespace WinUtils {
             if (wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0) {
                 std::wstring filePath = dir + L"\\" + findFileData.cFileName;
                 if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                    if (!walkThroughDirectoryImpl(filePath, func)) {
-                        // Ignore
+                    if (!walkThroughDirectoryImpl(filePath, func, strict) && strict) {
+                        FindClose(hFind);
+                        return false;
                     }
                 } else {
-                    // Handle file name
-                    func(filePath);
+                    if (!func(filePath) && strict) {
+                        FindClose(hFind);
+                        return false;
+                    }
                 }
             }
         } while (FindNextFileW(hFind, &findFileData) != 0);
@@ -169,8 +172,9 @@ namespace WinUtils {
         return true;
     }
 
-    bool walkThroughDirectory(const std::wstring &dir, const std::function<bool(const std::wstring &)> &func) {
-        return walkThroughDirectoryImpl(fixDirectoryPath(dir), func);
+    bool walkThroughDirectory(const std::wstring &dir, const std::function<bool(const std::wstring &)> &func,
+                              bool strict) {
+        return walkThroughDirectoryImpl(fixDirectoryPath(dir), func, strict);
     }
 
     std::wstring pathFindFileName(const std::wstring &path) {

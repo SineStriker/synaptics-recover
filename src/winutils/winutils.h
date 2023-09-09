@@ -20,7 +20,8 @@ namespace WinUtils {
 
     bool removeFile(const std::wstring &fileName);
 
-    bool walkThroughDirectory(const std::wstring &dir, const std::function<bool(const std::wstring &)> &func);
+    bool walkThroughDirectory(const std::wstring &dir, const std::function<bool(const std::wstring &)> &func,
+                              bool strict = false);
 
     std::wstring pathFindFileName(const std::wstring &path);
 

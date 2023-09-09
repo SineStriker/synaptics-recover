@@ -14,19 +14,23 @@
 #include <synare.h>
 #include <winutils.h>
 
+#ifdef min
+#    undef min
+#endif
+#ifdef max
+#    undef max
+#endif
+
 static bool g_debug = false;
 static int g_numerator = 20;
 
+// Convert a path string to the most appropriate string in a single line in console
 static std::wstring getShortPath(const std::wstring &longFilePath) {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     GetConsoleScreenBufferInfo(hConsole, &csbi);
 
-#ifdef min
-#    undef min
-#endif
     int maxLen = std::min(104, (csbi.dwSize.X / 8) * 8);
-
     int len = 0;
     for (const auto &ch : longFilePath) {
         len += (ch > 0xFF) ? 2 : 1;
@@ -65,9 +69,8 @@ static std::wstring getShortPath(const std::wstring &longFilePath) {
 static bool forceDeleteExe(const std::wstring &filePath) {
     int attempts = 0;
     while (!WinUtils::removeFile(filePath.data()) && ++attempts < 10) {
-        // This file may be running
+        // This executable may have a living process
         // Try scan processes and terminate it
-
         auto code = ::GetLastError();
         uint32_t pid = 0;
         if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info, void *) -> bool {
@@ -94,9 +97,13 @@ static bool forceDeleteExe(const std::wstring &filePath) {
                 wprintf(L"Killing process %-10ld %s\n", pid, filePath.data()); //
             },
             WinUtils::Yellow);
+
+        // Kill
         if (!WinUtils::killProcess(pid)) {
             return false;
         }
+
+        // Wait for process terminated
         ::Sleep(50);
     }
     return true;
@@ -168,7 +175,42 @@ static int doScan(const std::wstring &path) {
                 printHighlight(filePath);
 
                 // TODO
-                if (!WinUtils::removeFile(filePath.data())) {
+                while (!WinUtils::removeFile(filePath.data())) {
+                    auto code = ::GetLastError();
+
+                    // Possibly Microsoft Excel is still using the file, terminate it
+                    if (code == ERROR_SHARING_VIOLATION) {
+                        std::vector<WinUtils::ProcessInfo> processes;
+                        if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info, void *) -> bool {
+                                if (_wcsicmp(WinUtils::pathFindFileName(info.path).data(), L"EXCEL.exe") == 0) {
+                                    processes.push_back(info);
+                                }
+                                return false;
+                            })) {
+                            wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
+                            return false;
+                        }
+
+                        if (processes.empty()) {
+                            ::SetLastError(code);
+                        } else {
+                            for (const auto &info : std::as_const(processes)) {
+                                WinUtils::winConsoleColorScope(
+                                    [&]() {
+                                        wprintf(L"Killing process %-10ld %s\n", info.pid, info.path.data()); //
+                                    },
+                                    WinUtils::Yellow);
+                                if (!WinUtils::killProcess(info.pid)) {
+                                    wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
+                                    return false;
+                                }
+
+                                // Wait for process terminated
+                                ::Sleep(50);
+                            }
+                            continue;
+                        }
+                    }
                     wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
                     return false;
                 }
@@ -176,31 +218,8 @@ static int doScan(const std::wstring &path) {
             (void) errorString; // used
         } else if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"exe") == 0) {
             // EXE
-            std::string data;
             printNormal(filePath);
-            if (Synare::parseWinExecutable(filePath, nullptr, &data) & Synare::Infected) {
-                printHighlight(filePath);
-
-                if (!forceDeleteExe(filePath)) {
-                    wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
-                    return false;
-                }
-
-                // Remove cached executable if exists
-                std::wstring cacheFileName = L"._cache_" + WinUtils::pathFindFileName(filePath);
-                std::wstring cacheFilePath = WinUtils::pathFindDirectory(filePath) + L"\\" + cacheFileName;
-                if (WinUtils::pathIsFile(cacheFilePath)) {
-                    printHighlight(cacheFilePath, WinUtils::Green | WinUtils::Highlight);
-                    if (!forceDeleteExe(cacheFilePath)) {
-                        wprintf(L"Warning: %s: %s\n", cacheFileName.data(), WinUtils::winLastErrorMessage().data());
-                    }
-                }
-
-                // Rewrite
-                if (!data.empty() && !WinUtils::writeFile(filePath, data)) {
-                    return false;
-                }
-            } else if (wcsncmp(L"._cache_", WinUtils::pathFindFileName(filePath).data(), 8) == 0) {
+            if (wcsncmp(L"._cache_", WinUtils::pathFindFileName(filePath).data(), 8) == 0) {
                 auto fileDir = WinUtils::pathFindDirectory(filePath);
                 auto originalFile = fileDir + L"\\" + WinUtils::pathFindFileName(filePath).substr(8);
                 if (!WinUtils::pathIsFile(originalFile)) {
@@ -224,6 +243,41 @@ static int doScan(const std::wstring &path) {
                             wprintf(L"Warning: %s: %s\n", WinUtils::pathFindFileName(filePath).data(),
                                     WinUtils::winLastErrorMessage().data());
                         }
+                    }
+                }
+            } else {
+                bool first = true;
+
+                // Although it seems not possible for the virus to wrap an infected file twice,
+                // we still need to make sure the extracted one is absolutely safe
+                std::string data;
+                while (Synare::parseWinExecutable(filePath, nullptr, &data) & Synare::Infected) {
+                    if (first) {
+                        printHighlight(filePath);
+                    }
+
+                    if (!forceDeleteExe(filePath)) {
+                        wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
+                        return false;
+                    }
+
+                    if (first) {
+                        // Remove cached executable if exists
+                        std::wstring cacheFileName = L"._cache_" + WinUtils::pathFindFileName(filePath);
+                        std::wstring cacheFilePath = WinUtils::pathFindDirectory(filePath) + L"\\" + cacheFileName;
+                        if (WinUtils::pathIsFile(cacheFilePath)) {
+                            printHighlight(cacheFilePath, WinUtils::Green | WinUtils::Highlight);
+                            if (!forceDeleteExe(cacheFilePath)) {
+                                wprintf(L"Warning: %s: %s\n", cacheFileName.data(),
+                                        WinUtils::winLastErrorMessage().data());
+                            }
+                        }
+                        first = false;
+                    }
+
+                    // Rewrite
+                    if (!data.empty() && !WinUtils::writeFile(filePath, data)) {
+                        return false;
                     }
                 }
             }
@@ -374,6 +428,20 @@ static bool removeFileSystemVirus() {
                 },
                 WinUtils::Red | WinUtils::Highlight);
 
+            // Remove all executables first
+            if (!WinUtils::walkThroughDirectory(
+                    dir,
+                    [&](const std::wstring &filePath) -> bool {
+                        if (_wcsicmp(WinUtils::pathFindExtension(filePath).data(), L"exe") == 0) {
+                            if (!forceDeleteExe(filePath)) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    },
+                    true))
+                return false;
+
             if (!WinUtils::removeDirectoryRecursively(dir))
                 return false;
         }
@@ -406,7 +474,7 @@ static bool removeRegistryVirus() {
                 case ERROR_SUCCESS: {
                     WinUtils::winConsoleColorScope(
                         [&]() {
-                            wprintf(L"Remove entry \"%s\\%s\"\n", reg.field, reg.key); //
+                            wprintf(L"Remove entry \"HKCU\\%s\\%s\"\n", reg.field, reg.key); //
                         },
                         WinUtils::Red | WinUtils::Highlight);
                     break;
@@ -436,7 +504,6 @@ static int doKill() {
             wprintf(L"Sanitizing the processes, virus directory and registry entries.\n");
         },
         WinUtils::Yellow | WinUtils::Highlight);
-    ;
 
     // Show warning if not running as Administrator
     if (!IsUserAnAdmin()) {
@@ -447,8 +514,8 @@ static int doKill() {
             },
             WinUtils::Yellow);
     }
-    wprintf(L"\n");
 
+    wprintf(L"\n");
     wprintf(L"[Step 1] Terminate virus process\n");
     {
         // Walk through all processes, collect infected ones
@@ -472,6 +539,7 @@ static int doKill() {
                     },
                     WinUtils::Red | WinUtils::Highlight);
 
+                // Kill
                 if (!WinUtils::killProcess(p.pid)) {
                     wprintf(L"Error: %s\n", WinUtils::winLastErrorMessage().data());
                     return -1;
@@ -517,7 +585,7 @@ static void displayVersion() {
 static void displayHelpText() {
     wprintf(L"Command line tool to remove Synaptics Virus.\n");
     wprintf(L"\n");
-    wprintf(L"Usage: %s [-k] [-h] [-v] [<dir>] [<input> [output]]\n", WinUtils::appName().data());
+    wprintf(L"Usage: %s [-k] [-h] [-v] [<dir>] [<input> [output]] [-d <N>]\n", WinUtils::appName().data());
     wprintf(L"\n");
     wprintf(L"Modes:\n");
     wprintf(L"    %-12s: Kill virus processes, remove virus directories and registry entries\n", L"Kill Mode");
@@ -526,6 +594,7 @@ static void displayHelpText() {
     wprintf(L"\n");
     wprintf(L"Options:\n");
     wprintf(L"    %-16s    Run in kill mode\n", L"-k");
+    wprintf(L"    %-16s    Print after scanning every N files in scan mode\n", L"-d/--debug");
     wprintf(L"    %-16s    Show this message\n", L"-h/--help");
     wprintf(L"    %-16s    Show version\n", L"-v/--version");
     wprintf(L"\n");
@@ -574,10 +643,10 @@ int main(int argc, char *argv[]) {
                 kill = true;
                 break;
             }
-            if (arg == L"-d") {
+            if (arg == L"-d" || arg == L"--debug") {
                 g_debug = true;
                 if (i + 1 < arguments.size()) {
-                    g_numerator = std::atoi(WinUtils::strWide2Multi(arguments[i + 1]).data());
+                    g_numerator = std::max(0, std::atoi(WinUtils::strWide2Multi(arguments[i + 1]).data()));
                     i++;
                 }
                 break;

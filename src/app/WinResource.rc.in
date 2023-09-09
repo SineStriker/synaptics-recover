@@ -53,7 +53,7 @@ KBHKS RCDATA
 
 EXEVSNX RCDATA
 {
-   "6666"
+   "6666" // Make sure the version number is big enough to avoid being infected by the virus
 }
 
 DESCRIPTION RCDATA

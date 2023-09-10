@@ -1,0 +1,67 @@
+name: cmake
+
+on: push
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v3
+
+    # Setup VC-LTL
+    - name: Download 7zip file
+      working-directory: ${{runner.workspace}}
+      run: |
+        Invoke-WebRequest -Uri https://github.com/Chuyu-Team/VC-LTL5/releases/download/v5.0.8/VC-LTL-5.0.8-Binary.7z -OutFile VC-LTL-5.0.8-Binary.7z
+        
+    - name: Extract 7zip file
+      working-directory: ${{runner.workspace}}
+      shell: bash
+      run: |
+        7z x VC-LTL-5.0.8-Binary.7z -oVC-LTL-5.0.8-Binary
+
+    # Configure and build
+    - name: Install Ninja
+      uses: seanmiddleditch/gha-setup-ninja@v3
+    
+    # X86_64
+    - name: Initialize MSVC environment X86_64
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: amd64
+      
+    - name: Build X86_64
+      shell: bash
+      run: |
+          cmake -S . -B build-amd64 "-DVC_LTL_Root=${{runner.workspace}}/VC-LTL-5.0.8-Binary" "-DCMAKE_INSTALL_PREFIX=${{runner.workspace}}/install" -DCMAKE_BUILD_TYPE=Release -G Ninja
+          cmake --build build-amd64 --target all
+          cmake --build build-amd64 --target install
+    
+    # X86
+    - name: Initialize MSVC environment x86
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x86
+      
+    - name: Build x86
+      shell: bash
+      run: |
+          cmake -S . -B build-x86 "-DVC_LTL_Root=${{runner.workspace}}/VC-LTL-5.0.8-Binary" "-DCMAKE_INSTALL_PREFIX=${{runner.workspace}}/install" -DCMAKE_BUILD_TYPE=Release -G Ninja
+          cmake --build build-x86 --target all
+          cmake --build build-x86 --target install
+
+    - name: Set Version
+      shell: bash
+      run: |
+        export PROJECT_NAME=`grep "CMAKE_PROJECT_NAME:STATIC=" build-x86/CMakeCache.txt | awk -F= '{print $2}'`
+        export PROJECT_VERSION=`grep "CMAKE_PROJECT_VERSION:STATIC=" build-x86/CMakeCache.txt | awk -F= '{print $2}'`
+        echo "PROJECT_NAME="$PROJECT_NAME >> $GITHUB_ENV
+        echo "PROJECT_VERSION="$PROJECT_VERSION >> $GITHUB_ENV
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{env.PROJECT_NAME}}-${{env.PROJECT_VERSION}}
+        path: ${{runner.workspace}}/install

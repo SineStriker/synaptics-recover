@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
 
-project(synaptics-recover VERSION 0.0.1.4 LANGUAGES CXX)
+project(synaptics-recover VERSION 0.0.1.5 LANGUAGES CXX)
 
 if(NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -22,3 +22,5 @@ if(MSVC)
 endif()
 
 add_subdirectory(src)
+
+install(FILES LICENSE README.md README_zh_CN.md DESTINATION .)

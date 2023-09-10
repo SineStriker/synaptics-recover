@@ -15,6 +15,13 @@ if(TRUE)
     include("winrc.cmake")
 endif()
 
-# if(NOT CMAKE_CL_64)
-#     set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}32)
-# endif()
+if(NOT CMAKE_CL_64)
+    # set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}32)
+    install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION "x86" OPTIONAL
+    )
+else()
+    install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION "x86_64" OPTIONAL
+    )
+endif()

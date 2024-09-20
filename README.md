@@ -25,9 +25,9 @@ Options:
     -v/--version        Show version
 ```
 
-## Vulnerabilities
+<!-- ## Vulnerabilities
 
-+ Cannot handle long file names
++ Cannot handle long file names -->
 
 ## Examples
 

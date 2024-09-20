@@ -74,11 +74,9 @@ static bool forceDeleteExe(const std::wstring &filePath) {
         auto code = ::GetLastError();
         uint32_t pid = 0;
         if (!WinUtils::walkThroughProcesses([&](const WinUtils::ProcessInfo &info, void *) -> bool {
-                WCHAR canonicalPath1[MAX_PATH];
-                WCHAR canonicalPath2[MAX_PATH];
-                PathCanonicalizeW(canonicalPath1, filePath.c_str());
-                PathCanonicalizeW(canonicalPath2, info.path.c_str());
-                if (_wcsicmp(canonicalPath1, canonicalPath2) == 0) {
+                auto canonicalPath1 = WinUtils::getCanonicalPath(filePath);
+                auto canonicalPath2 = WinUtils::getCanonicalPath(info.path);
+                if (_wcsicmp(canonicalPath1.data(), canonicalPath2.data()) == 0) {
                     pid = info.pid;
                     return true;
                 }
@@ -109,15 +107,25 @@ static bool forceDeleteExe(const std::wstring &filePath) {
     return true;
 }
 
+static void waitForEnter() {
+    WinUtils::winConsoleColorScope(
+        []() {
+            wprintf(L"\n--- Press the <ENTER> key to exit ---"); //
+        },
+        WinUtils::Green | WinUtils::Highlight);
+    std::getchar();
+}
+
 static int doScan(const std::wstring &path) {
     WinUtils::winConsoleColorScope(
         [&]() {
             wprintf(L"[Scan Mode]\n");
-            wprintf(L"Searching \"%s\" for infected files and recover them.\n", path.data());
+            wprintf(L"Searching \"%s\" for infected files and recover them.\n",
+                    WinUtils::getCanonicalPath(path).data());
         },
         WinUtils::Yellow | WinUtils::Highlight);
     ;
-    if (!IsUserAnAdmin()) {
+    if (!::IsUserAnAdmin()) {
         WinUtils::winConsoleColorScope(
             [&]() {
                 wprintf(L"Warning: %s\n",
@@ -574,7 +582,6 @@ static int doKill() {
         }
         wprintf(L"OK\n");
     }
-
     return 0;
 }
 
@@ -666,7 +673,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (kill) {
-        return doKill();
+        auto ret = doKill();
+        return ret;
     }
 
     if (fileNames.empty()) {
@@ -674,9 +682,16 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    struct WaitEnterGuard {
+        ~WaitEnterGuard() {
+            waitForEnter();
+        }
+    };
+    WaitEnterGuard weg;
+
     const std::wstring &fileName = fileNames.front();
 
-    DWORD attributes = GetFileAttributesW(fileName.data());
+    DWORD attributes = ::GetFileAttributesW(fileName.data());
     if (attributes == INVALID_FILE_ATTRIBUTES) {
         wprintf(L"Error: %s: %s\n", fileName.data(), L"Invalid path.");
         return -1;
@@ -689,20 +704,27 @@ int main(int argc, char *argv[]) {
                                               : WinUtils::getAbsolutePath(path, L".");
 
         // If the path is the system root, always run kill mode
-        if (_wcsicmp(path.data(), L"C:") == 0 || _wcsicmp(path.data(), L"C:\\") == 0) {
-            WinUtils::winConsoleColorScope(
-                [&]() {
-                    wprintf(L"The path is the system root, automatically run kill mode first.\n"); //
-                },
-                WinUtils::White | WinUtils::Highlight);
-            wprintf(L"\n");
+        // if (_wcsicmp(path.data(), L"C:") == 0 || _wcsicmp(path.data(), L"C:\\") == 0) {
+        //     WinUtils::winConsoleColorScope(
+        //         [&]() {
+        //             wprintf(L"The path is the system root, automatically run kill mode first.\n"); //
+        //         },
+        //         WinUtils::White | WinUtils::Highlight);
+        //     wprintf(L"\n");
 
-            int ret = doKill();
-            if (ret != 0) {
-                return ret;
-            }
-            wprintf(L"\n");
+        //     int ret = doKill();
+        //     if (ret != 0) {
+        //         return ret;
+        //     }
+        //     wprintf(L"\n");
+        // }
+
+        // Always do kill
+        int ret = doKill();
+        if (ret != 0) {
+            return ret;
         }
+        wprintf(L"\n");
         return doScan(path);
     }
     return doRecover(fileName, fileNames.size() > 1 ? fileNames.at(1) : std::wstring());

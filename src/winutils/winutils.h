@@ -2,7 +2,7 @@
 #define WINUTILS_H
 
 #include <functional>
-#include <iostream>
+#include <string>
 
 namespace WinUtils {
 
@@ -64,6 +64,8 @@ namespace WinUtils {
     std::wstring getPathEnv(const wchar_t *key);
 
     std::wstring getAbsolutePath(const std::wstring &basePath, const std::wstring &relativePath);
+
+    std::wstring getCanonicalPath(const std::wstring &path);
 
     std::wstring strMulti2Wide(const std::string &bytes);
 

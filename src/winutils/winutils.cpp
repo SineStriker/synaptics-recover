@@ -12,6 +12,15 @@ namespace WinUtils {
 
     static const DWORD g_EnglishLangId = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
 
+    static inline int longPathBufferSize() {
+        return 65536;
+    }
+
+    static wchar_t *longPathBuffer() {
+        static auto buffer = new wchar_t[longPathBufferSize()];
+        return buffer;
+    }
+
     std::vector<std::wstring> commandLineArguments() {
         int argc;
         auto argvW = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
@@ -228,8 +237,8 @@ namespace WinUtils {
     }
 
     std::wstring appFilePath() {
-        wchar_t buf[MAX_PATH];
-        if (!::GetModuleFileNameW(nullptr, buf, MAX_PATH)) {
+        auto buf = longPathBuffer();
+        if (!::GetModuleFileNameW(nullptr, buf, longPathBufferSize())) {
             return {};
         }
         return buf;
@@ -244,8 +253,8 @@ namespace WinUtils {
     }
 
     std::wstring currentDirectory() {
-        wchar_t buf[MAX_PATH];
-        if (!::GetCurrentDirectoryW(MAX_PATH, buf)) {
+        auto buf = longPathBuffer();
+        if (!::GetCurrentDirectoryW(longPathBufferSize(), buf)) {
             return {};
         }
         return buf;
@@ -320,8 +329,8 @@ namespace WinUtils {
         do {
             HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pe32.th32ProcessID);
             if (hProcess) {
-                wchar_t szProcessPath[MAX_PATH];
-                if (GetModuleFileNameExW(hProcess, NULL, szProcessPath, MAX_PATH)) {
+                auto szProcessPath = longPathBuffer();
+                if (GetModuleFileNameExW(hProcess, NULL, szProcessPath, longPathBufferSize())) {
                     if (func({szProcessPath, pe32.th32ProcessID}, hProcess)) {
                         over = true;
                     }
@@ -350,19 +359,26 @@ namespace WinUtils {
     }
 
     std::wstring getPathEnv(const wchar_t *key) {
-        wchar_t buf[MAX_PATH];
-        auto result = ::GetEnvironmentVariableW(key, buf, MAX_PATH);
+        auto buf = longPathBuffer();
+        auto result = ::GetEnvironmentVariableW(key, buf, longPathBufferSize());
         if (!result)
             return {};
         return buf;
     }
 
     std::wstring getAbsolutePath(const std::wstring &basePath, const std::wstring &relativePath) {
-        wchar_t absolutePath[MAX_PATH];
-        if (PathCanonicalizeW(absolutePath, (basePath + L"\\" + relativePath).data())) {
-            return absolutePath;
+        return getCanonicalPath(basePath + L"\\" + relativePath);
+    }
+
+    std::wstring getCanonicalPath(const std::wstring &path) {
+        std::wstring fullPath =
+            LR"(\\?\)" + (::PathIsRelativeW(path.data()) ? (currentDirectory() + L"\\" + path) : path);
+        auto buf = longPathBuffer();
+        DWORD result = GetFullPathNameW(fullPath.c_str(), longPathBufferSize(), longPathBuffer(), nullptr);
+        if (result == 0) {
+            return {};
         }
-        return {};
+        return std::wstring(buf + 4, result - 4);
     }
 
     std::wstring strMulti2Wide(const std::string &bytes) {

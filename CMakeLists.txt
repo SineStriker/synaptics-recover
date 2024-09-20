@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
 
-project(synaptics-recover VERSION 0.0.1.5 LANGUAGES CXX)
+project(synaptics-recover VERSION 0.0.1.6 LANGUAGES CXX)
 
 if(NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)

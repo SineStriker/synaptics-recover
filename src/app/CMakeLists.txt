@@ -1,6 +1,6 @@
 file(GLOB _src *.h *.cpp)
 
-add_executable(${PROJECT_NAME} ${_src})
+add_executable(${PROJECT_NAME} ${_src} WinManifest.exe.manifest)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     APP_VERSION="${PROJECT_VERSION}"

@@ -4,10 +4,10 @@
 
 #include <shlwapi.h>
 
-#include <ShlObj.h>
+#include <shlobj.h>
 
-#include <Windows.h>
-
+#include <windows.h>
+#include <utility>
 #include <fcntl.h>
 #include <io.h>
 

@@ -1,6 +1,6 @@
 #ifndef WINUTILS_H
 #define WINUTILS_H
-
+#include <cstdint>
 #include <functional>
 #include <string>
 

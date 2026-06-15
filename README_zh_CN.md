@@ -55,6 +55,54 @@ synaptics-recover C:\
 
 + Zippy
 
+## 跨平台编译 (Linux 环境下交叉编译)
+
+虽然本程序主要针对 Windows 环境下的病毒修复，但你完全可以在 Linux（如 Ubuntu）下通过 `mingw-w64` 将其交叉编译为独立的 Windows 绿色版可执行文件，以便修复 U 盘等挂载设备中受感染的文件。
+
+### 1. 安装编译工具链
+在 Debian/Ubuntu 系统下，安装 MinGW 交叉编译器：
+```sh
+sudo apt update
+sudo apt install mingw-w64
+```
+
+### 2. 使用 CMake 构建静态绿色版
+创建一个构建目录，并强制指定 MinGW 工具链与静态链接参数（确保生成的 `.exe` 摆脱对临时 `.dll` 文件的依赖，单枪匹马即可运行）：
+```bash
+mkdir build && cd build
+
+cmake .. -DCMAKE_SYSTEM_NAME=Windows \
+         -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+         -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
+         -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -static"
+
+make
+```
+编译完成后，独立的 `synaptics-recover.exe` 将生成在 `build/bin/` 目录下。你可以在 Linux 下通过 wine 运行，或直接复制到 Windows 电脑上使用。
+
+## ⚠️ Wine 环境运行说明
+
+若直接在 Linux 的终端里通过 `wine` 运行本程序，由于 Wine 对 Windows 控制台特定编码页（如 `SetConsoleOutputCP`）和宽字符本地化输出的兼容性限制，帮助菜单的排版可能会出现字符残缺（被“吃掉”一部分）：
+```sh
+Command line tool to remove Synaptics Virus.
+
+Usage: s [-k] [-h] [-v] [<dir>] [<input> [output]] [-d <N>]
+
+Modes:
+    K           : Kill virus processes, remove virus directories and registry entries
+    S           : Scan the given directory recursively, fix infected EXE or XLSM files
+    S           : Read the given input file, output the original one if infected
+
+Options:
+    -                   Run in kill mode
+    -                   Print after scanning every N files in scan mode
+    -                   Show this message
+    -                   Show version
+
+Copyright SineStriker, checkout https://github.com/SineStriker/synaptics-recover
+```
+注： 这仅为 Wine 终端环境下的显示兼容性瑕疵，程序的底层核心功能（如进程清理、文件扫描与去毒修复逻辑）完全正常，不受影响。在原生 Windows 环境下运行可正常显示完整菜单。
+
 ## 修复策略
 
 ### Exe

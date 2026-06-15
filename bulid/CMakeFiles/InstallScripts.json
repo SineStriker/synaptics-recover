@@ -1,0 +1,11 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/wuwenjun/\u684c\u9762/github/synaptics-recover/bulid/cmake_install.cmake",
+		"/home/wuwenjun/\u684c\u9762/github/synaptics-recover/bulid/src/cmake_install.cmake",
+		"/home/wuwenjun/\u684c\u9762/github/synaptics-recover/bulid/src/winutils/cmake_install.cmake",
+		"/home/wuwenjun/\u684c\u9762/github/synaptics-recover/bulid/src/synare/cmake_install.cmake",
+		"/home/wuwenjun/\u684c\u9762/github/synaptics-recover/bulid/src/app/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

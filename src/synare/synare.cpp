@@ -1,8 +1,8 @@
 #include "synare.h"
 
-#include <Windows.h>
+#include <windows.h>
 
-#include <Shlwapi.h>
+#include <shlwapi.h>
 
 #include <winutils.h>
 

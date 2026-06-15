@@ -1,0 +1,3 @@
+/usr/bin/cmake -E rm -f CMakeFiles/synaptics-recover.dir/objects.a
+/usr/bin/i686-w64-mingw32-ar qc CMakeFiles/synaptics-recover.dir/objects.a @CMakeFiles/synaptics-recover.dir/objects1.rsp
+/usr/bin/i686-w64-mingw32-g++ -static-libgcc -static-libstdc++ -static -Wl,--whole-archive CMakeFiles/synaptics-recover.dir/objects.a -Wl,--no-whole-archive -o ../../bin/synaptics-recover.exe -Wl,--out-implib,../../lib/libsynaptics-recover.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles/synaptics-recover.dir/linkLibs.rsp

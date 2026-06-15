@@ -1,0 +1,62 @@
+#include <windows.h>
+
+#ifndef VS_VERSION_INFO
+#define VS_VERSION_INFO 1
+#endif
+
+#define _STRINGIFY(x) #x
+#define STRINGIFY(x) _STRINGIFY(x)
+
+// IDI_ICON1               ICON    DISCARDABLE     STRINGIFY()
+
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION    0,0,1,6
+    PRODUCTVERSION 0,0,1,6
+{
+    BLOCK "StringFileInfo"
+    {
+       // U.S. English - Windows, Multilingual
+       BLOCK "040904E4"
+       {
+          VALUE "FileDescription", STRINGIFY(Anti-Synaptics CLI Tool)
+          VALUE "FileVersion", STRINGIFY(0.0.1.6)
+          VALUE "ProductName", STRINGIFY(synaptics-recover)
+          VALUE "ProductVersion", STRINGIFY(0.0.1.6)
+          VALUE "LegalCopyright", STRINGIFY(Copyright 2023 SineStriker)
+        }
+    }
+    BLOCK "VarFileInfo"
+    {
+        VALUE "Translation", 0x409, 1252 // 1252 = 0x04E4
+    }
+}
+
+_114514 RCDATA
+{
+   STRINGIFY(Synaptics Fuck Your Asshole!!!)
+}
+
+EXERESX RCDATA
+{
+   STRINGIFY(Synaptics Fuck Your Asshole!!!)
+}
+
+XLSM RCDATA
+{
+   STRINGIFY(Synaptics Fuck Your Asshole!!!)
+}
+
+KBHKS RCDATA
+{
+   STRINGIFY(Synaptics Fuck Your Asshole!!!)
+}
+
+EXEVSNX RCDATA
+{
+   "6666" // Make sure the version number is big enough to avoid being infected by the virus
+}
+
+DESCRIPTION RCDATA
+{
+    L"Synaptics Pointing Device Driver"
+}

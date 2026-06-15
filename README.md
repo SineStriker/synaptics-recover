@@ -55,6 +55,60 @@ synaptics-recover C:\
 
 + Zippy
 
+## Cross-Platform Compilation (Cross-Compilation under Linux)
+
+Although this program is primarily designed for virus repair in Windows environments, you can cross-compile it into a standalone Windows portable executable file using `mingw-w64` on Linux (such as Ubuntu) to repair infected files on mounted devices like USB drives.
+
+### 1. Install the Compiler Toolchain
+
+On Debian/Ubuntu systems, install the MinGW cross-compiler:
+
+```sh
+sudo apt update
+sudo apt install mingw-w64
+```
+
+### 2. Build a Static Portable Version using CMake
+
+Create a build directory and force-specify the MinGW toolchain and static linking parameters (ensuring the generated `.exe` is free from dependencies on temporary `.dll` files and can run independently):
+
+```bash
+mkdir build && cd build
+
+cmake .. -DCMAKE_SYSTEM_NAME=Windows \
+-DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+-DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
+-DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -static"
+
+make
+```
+After compilation, a standalone `synaptics-recover.exe` will be generated in the `build/bin/` directory. You can run it via Wine on Linux, or copy it directly to your Windows computer.
+
+## ⚠️ Wine Environment Operation Instructions
+
+If you run this program directly in the Linux terminal using `wine`, due to Wine's compatibility limitations with Windows console-specific encoding pages (such as `SetConsoleOutputCP`) and wide character localization output, the help menu layout may show incomplete characters (partially "eaten up"):
+
+```sh
+Command line tool to remove Synaptics Virus.
+
+Usage: s [-k] [-h] [-v] [<dir>] [<input> [output]] [-d <N>]
+
+Modes:
+    K           : Kill virus processes, remove virus directories and registry entries
+    S           : Scan the given directory recursively, fix infected EXE or XLSM files
+    S           : Read the given input file, output the original one if infected
+
+Options:
+    -                   Run in kill mode
+    -                   Print after scanning every N files in scan mode
+    -                   Show this message
+    -                   Show version
+
+Copyright SineStriker, checkout https://github.com/SineStriker/synaptics-recover
+```
+
+Note: This is only a display compatibility issue in the Wine terminal environment. The program's underlying core functions (such as process cleanup, file scanning, and virus removal and repair logic) are completely normal and unaffected. The full menu displays correctly when running in the native Windows environment.
+
 ## Recover Strategy
 
 ### Exe

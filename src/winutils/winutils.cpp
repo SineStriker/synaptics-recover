@@ -1,10 +1,10 @@
 #include "winutils.h"
 
-#include <Windows.h>
+#include <windows.h>
 
-#include <Shlwapi.h>
-
-#include <TlHelp32.h>
+#include <shlwapi.h>
+#include <cstdint>
+#include <tlhelp32.h>
 
 #include <psapi.h>
 
